@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
+
 function App() {
-  return <div className="text-3xl font-bold underline">Hello React</div>;
+  return <div>Hello React</div>;
 }
 
 export default App;
