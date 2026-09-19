@@ -1,1 +1,91 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens, ported from client/design-system/tokens.json.
+ * Each --color-*, --text-*, --radius-*, --shadow-* and --font-* variable below
+ * becomes a Tailwind utility (bg-surface, text-ink, text-page-title, rounded-md,
+ * shadow-sm, font-heading, ...). Spacing is intentionally not redefined here:
+ * Tailwind's default 4px scale already matches space-1..4 (p-1 = 4px, p-2 = 8px,
+ * p-4 = 16px, p-6 = 24px).
+ */
+@theme {
+  /* Color */
+  --color-surface: #fff2eb;
+  --color-surface-raised: #ffffff;
+  --color-surface-pink: #ffdcdc;
+  --color-surface-peach: #ffe8cd;
+  --color-surface-apricot: #ffd6ba;
+  --color-ink: #2b2118;
+  --color-ink-muted: #5c5245;
+  --color-border: #f5d3b8;
+  --color-brand: #a85419;
+  --color-brand-hover: #8a4515;
+  --color-on-brand: #ffffff;
+  --color-status-pending: #b45309;
+  --color-status-done: #15803d;
+  --color-status-done-bg: #dcfce7;
+  --color-status-delivered: #1d4ed8;
+  --color-status-delivered-bg: #dbeafe;
+  --color-danger: #b91c1c;
+  --color-danger-border: #f3c6c6;
+  --color-divider: #f2e3d5;
+
+  /* Font families (Poppins has no Thai glyphs, so Thai falls through to the fallback) */
+  --font-heading: "Poppins", "Kanit", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Poppins", "IBM Plex Sans Thai", ui-sans-serif, system-ui,
+    sans-serif;
+
+  /* Type scale: text-<name> sets size + line-height + weight together */
+  --text-display: 28px;
+  --text-display--line-height: 36px;
+  --text-display--font-weight: 600;
+  --text-display-compact: 19px;
+  --text-display-compact--line-height: 26px;
+  --text-display-compact--font-weight: 600;
+  --text-heading: 20px;
+  --text-heading--line-height: 28px;
+  --text-heading--font-weight: 600;
+  --text-page-title: 18px;
+  --text-page-title--line-height: 26px;
+  --text-page-title--font-weight: 600;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body--font-weight: 500;
+  --text-body-small: 13px;
+  --text-body-small--line-height: 18px;
+  --text-body-small--font-weight: 500;
+  --text-label: 12px;
+  --text-label--line-height: 16px;
+  --text-label--font-weight: 400;
+  --text-badge: 12px;
+  --text-badge--line-height: 16px;
+  --text-badge--font-weight: 600;
+  --text-caption: 11px;
+  --text-caption--line-height: 14px;
+  --text-caption--font-weight: 500;
+  --text-button-primary: 16px;
+  --text-button-primary--line-height: 24px;
+  --text-button-primary--font-weight: 600;
+  --text-button-secondary: 14px;
+  --text-button-secondary--line-height: 20px;
+  --text-button-secondary--font-weight: 600;
+
+  /* Radius (sm/md/lg override Tailwind's defaults on purpose; use the default
+     rounded-full for circular icon buttons) */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(43, 33, 24, 0.06), 0 1px 3px rgba(43, 33, 24, 0.08);
+  --shadow-md: 0 4px 8px rgba(43, 33, 24, 0.1), 0 2px 4px rgba(43, 33, 24, 0.06);
+  --shadow-lg: 0 12px 24px rgba(43, 33, 24, 0.16),
+    0 4px 8px rgba(43, 33, 24, 0.08);
+}
+
+@layer base {
+  body {
+    @apply bg-surface font-sans text-ink;
+  }
+}
