@@ -2,16 +2,62 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## What this project is
+
+**Churo Bites Operations Dashboard** — an internal order-management and inventory-tracking
+tool for Churo Bites, a small churro business Jui co-runs with a partner (orders are
+currently taken over LINE). It's also a portfolio/internship piece for Jui, a university
+student learning Node.js aiming for a Junior full-stack role.
+
+**Collaboration style**: explain the *why* behind suggestions rather than silently handing
+over finished code, and keep solutions at a learning-appropriate level of complexity — this
+is explicitly not meant to reach for enterprise patterns it doesn't need. Jui wants to stay
+the one making UX/flow decisions (needs to be able to explain *why* something looks the way
+it does in an interview); AI-generated scaffolding and design-system basics are fine, but
+layout/flow calls should be explained, not just delivered.
+
+**Business context driving the architecture**:
+- Two operators take orders concurrently on separate phones — this is why there's a shared
+  Node/Express/MongoDB backend rather than a purely client-side app; both devices need to
+  see the same stock numbers and order list.
+- Sync is intentionally simple: polling every 5–10s, not WebSockets. Upgrading to Socket.io
+  is an explicit stretch goal, not a requirement.
+- Churros are bought pre-made and only flavored via topping/dusting at sale time — there is
+  no ingredient-level recipe tracking. This is why finished-churro stock is a single unified
+  pool (`Stock`), not tracked per flavor.
+
 ## Project state
 
-This is an early-stage project (initial scaffold commit only). The client is the stock Vite + React template; the server is an Express/Mongoose skeleton with `server.js` currently only importing `mongoose` and `dotenv` (no app, routes, or DB connection wired up yet). `server/models/` and `server/routes/` exist but are empty. Expect to be building this out from near-zero rather than navigating established patterns.
+**Verify against the working tree, not just this file.** The last commit (`af86b78`) contains
+the 5 Mongoose models, controllers, and routes (CRUD for `Expense` and `RestockLog`, stub
+`GET` for the rest), but in the current working tree those files are **deleted** —
+`server/models/`, `server/controllers/`, `server/routes/`, `server/constants/` are empty
+directories, and every router import/mount in `server/app.js` is commented out. `server/scripts/`
+does not exist (it was gitignored). So right now the server is just `app.js` (cors, json,
+morgan) + `server.js` (Mongoose connect + listen). Recover old code with `git show
+HEAD:server/<path>` / `git restore` if needed, but ask before assuming the deletion was an
+accident — a rewrite (possibly with auth first, see `todo.TODO`) may be underway.
+
+The client is still the Vite scaffold (`App.jsx` renders "Hello React"). A full design pass
+has been done and lives in `client/` as reference material (see below); none of it is built.
+Treat anything marked "not yet implemented" literally.
 
 ## Structure
 
 Two independent npm projects, no root package.json or workspace tooling tying them together:
 
-- `client/` — Vite + React 19 + Tailwind CSS v4 frontend
-- `server/` — Express 5 + Mongoose 9 (MongoDB Atlas) backend
+- `client/` — Vite + React 19 + Tailwind CSS v4 frontend. Currently plain JS/JSX with no
+  state library. TypeScript and Zustand (for shared stock/user state) are the intended
+  direction (per early planning) but neither is installed yet — don't assume `.tsx` files or
+  a Zustand store exist until they're actually added.
+- `server/` — Express 5 + Mongoose 9 (MongoDB Atlas) backend. `server.js` loads
+  `./config.env` (relative to cwd, so run from `server/`), builds the Atlas URI by
+  substituting `DATABASE_PASSWORD` into `<db_password>` in `DATABASE`, then listens on `PORT`.
+  `app.js` only mounts morgan (when `NODE_ENV === 'development'`), cors, and `express.json()`.
+
+`.claude/skills/` and `.agents/skills/` hold the same 3 UI skills (frontend-design,
+ui-ux-pro-max, web-design-guidelines); `skills-lock.json` pins them. `todo.TODO` is the
+personal task log (currently: implement authentication).
 
 Run commands from within each subdirectory.
 
@@ -29,19 +75,155 @@ No test runner is configured yet.
 ### server/
 - `npm start` — run via nodemon (`server.js`)
 
-No lint, build, or test scripts are configured yet.
+No lint, build, or automated test runner is configured yet. Manual verification used to live in
+gitignored `server/scripts/` scripts (see below); that folder doesn't currently exist.
 
 ## Client architecture notes
 
-- Vite config (`client/vite.config.js`) wires together `@tailwindcss/vite`, a Vite ESLint plugin (lint errors surface in dev), `@vitejs/plugin-react`, and Babel with `reactCompilerPreset` — the React Compiler is active, so avoid manual memoization (`useMemo`/`useCallback`/`React.memo`) unless there's a specific reason the compiler can't handle it.
-- Tailwind is imported via a single `@import "tailwindcss";` in `client/src/index.css` (Tailwind v4 CSS-first config, no `tailwind.config.js`).
-- ESLint (`client/eslint.config.js`) flat config: `js.configs.recommended` + React Hooks + React Refresh rules. Unused vars/args prefixed with `_` are allowed.
+- Vite config (`client/vite.config.js`) wires together `@tailwindcss/vite`, a Vite ESLint
+  plugin (lint errors surface in dev), `@vitejs/plugin-react`, and Babel with
+  `reactCompilerPreset` — the React Compiler is active, so avoid manual memoization
+  (`useMemo`/`useCallback`/`React.memo`) unless there's a specific reason the compiler can't
+  handle it.
+- Tailwind is imported via a single `@import "tailwindcss";` in `client/src/index.css`
+  (Tailwind v4 CSS-first config, no `tailwind.config.js`).
+- ESLint (`client/eslint.config.js`) flat config: `js.configs.recommended` + React Hooks +
+  React Refresh rules. Unused vars/args prefixed with `_` are allowed.
+- **Live design (source of truth):** https://claude.ai/artifact/1a3fc521-4534-4327-b9c7-63522a5b05e9
+  is Jui's current design. Before building or changing any UI/feature, open it and sync with
+  it. Use the `Artifact` tool (don't web-fetch it): a plain `action: "read"` only returns
+  metadata, so run `action: "list"` with `scope: "files"`, then `action: "read"` with `path`
+  (or `paths`) on `project/canvas.json` (index of artboards) and the relevant
+  `project/<Screen>.dc.html`. Colors/spacing/copy are in those files and
+  `project/ds/churo-bites/tokens.json`. Ignore `artifact-type/` and `SKILL.md` (editor internals).
+  Jui sometimes forgets to update the local files or to mention a screen/feature, so when the
+  live design and the local reference files below disagree, the live design wins. If it adds
+  or changes something not covered in this file, tell Jui and ask before treating it as
+  settled.
+- **Design reference (not runnable):** `client/design-system/tokens.json` +
+  `design-system/README.md` (principles, patterns) and `client/screens/*.dc.html` (one mockup
+  per screen) come from a Claude-chat design pass; read `client/HANDOFF.md` first. The
+  `.dc.html` files use a Claude-canvas-only runtime and won't render in a browser — read them
+  for exact colors/spacing/copy and rebuild as real components. Port tokens into Tailwind v4
+  CSS (`@theme` in `index.css`) since there's no `tailwind.config`. The design README says
+  React + TypeScript, but TS isn't installed.
+- **Design decisions that supersede earlier planning** (from HANDOFF.md): order creation is
+  **one scrollable form**, not the 3-step wizard; nav is a 4-item segmented control (Home /
+  Orders / Stock / Finances), not a hamburger menu; menu is 3 flavors (Original, Cinnamon
+  sugar, Chocolate dip) × 2 sizes (S/M); **Signature/`SignatureRatio` is intentionally not
+  built**; orders belong to an ad-hoc **Round** (name, open date, delivery date) chosen from
+  a dropdown; the UI shows status as one exclusive Pending/Done/Delivered radio group even
+  though the backend keeps `isDone`/`isDelivered` as two booleans; staff are "Jui" /
+  "Partner".
+- **Multiple rounds can be active at once** (design update, supersedes the old "one active
+  round" assumption). Consequences in the design: Home has no single-round bar or
+  pending/earnings stat cards anymore — it shows an **Active rounds** list (one row per
+  round: green dot, name, that round's earnings in ฿), swipe left on a row to reveal a 96px
+  "End round" action, and a "Start a new round" button below the list. Orders groups
+  orders under collapsible per-round headers (name + "N orders · M pending", or
+  "N orders · ฿X sold" for finished rounds) with All/Pending/Done/Delivered filter chips
+  inside each open round. The New order form's Round `<select>` lists the active rounds.
+  New round form (`DefineRound`) field order is Open date, Delivery date, Round name.
+  Built so far: Home's `ActiveRounds`, fed by live `GET /rounds/active` + per-round
+  `GET /orders?round=<id>` (earnings = sum of `totalPrice`) with loading/error/empty states,
+  polling every 7s; "End round" is wired to `PATCH /rounds/:id` (no confirmation step, by
+  design — confirmed with Jui), with a failed PATCH leaving the round list on screen and
+  showing a small inline error instead of the full-page error state; `/rounds/new` is a
+  stub route (`NewRound.jsx`, "Coming soon"). Not built yet: the actual new-round form,
+  grouped Orders page, New order's round select.
+- Swipe-to-end has no keyboard/screen-reader path other than tabbing to the (visually
+  hidden) button, and no confirmation step — neither is in the design; raise with Jui
+  before adding either.
+- `Stock.dc.html` tracks raw ingredients, which is **wrong** for this business (pre-made
+  churros bought in packs of 50). Don't build Stock from it — confirm the item list with Jui.
+- Form inputs must be ≥16px font (iOS Safari zooms on focus otherwise); the mockups' 15px is a
+  known bug. Primary buttons 48px/16px text vs secondary 44px/14px is intentional.
 
 ## Server architecture notes
 
-- `server/config.env` holds environment variables (Mongo Atlas connection string, port, etc.) and is loaded via `dotenv`. This file is **not** covered by `.gitignore` (only bare `.env` is ignored) — treat any secrets in it as needing a rename to `.env` or an explicit `.gitignore` entry before they're safe to leave in the working tree.
-- Dependencies already installed but not yet used in code: `cors`, `express`, `morgan`, `mongodb` — the actual Express app/middleware/routing setup is still to be written.
+- `server/config.env` holds environment variables (Mongo Atlas connection string, port,
+  etc.), loaded via `dotenv.config({ path: ... })`. It's covered by `.gitignore` (alongside
+  bare `.env`).
+- `server/constants/stockTypes.js` exports the shared `['churro', 'stick', 'box']` enum. Only
+  `StockModel.js` imports it so far — `RestockLogModel.js` still has the enum duplicated
+  inline. If a new stock type is ever added, update both, and remember a new type also needs
+  a manually-seeded `Stock` doc (nothing auto-creates them) plus new stock-deduction logic
+  wherever that's implemented, since deduction rules aren't generic per type.
+- The `constants/stockTypes.js` note above, the (former) `RestockLogModel.js` unused
+  `Timestamp` import, and the old `server/scripts/` pattern (`testExpense.js`, `seedStock.js`, etc.: load
+  `../config.env`, connect to Atlas, run valid/invalid cases, log ✅/❌, disconnect; writes
+  real docs with no cleanup) describe the code at commit `af86b78` — check `git show
+  HEAD:server/...` before relying on them, since those files are absent from the working tree.
+
+## Domain model
+
+The 5 original Mongoose schemas (`server/models/`; `Round` was added later as a 6th) were
+deliberately kept at 5, not more — a
+`FinishedStock`/`PackagingStock` split was merged into one generic `Stock` schema since
+churro/stick/box share the same shape, and a churro-only `ProductionLog` was generalized into
+`RestockLog` to give stick/box restocks an audit trail too. There's no ingredient-level stock
+tracking — that was in an earlier design, dropped once it came out that churros are bought
+pre-made with flavor applied only at sale time.
+
+- **`Stock`** (`type` enum, `currentQty`, `lowStockThreshold`) — exactly 3 documents ever
+  exist, one per type. Must be seeded manually (`server/scripts/seedStock.js`); nothing else
+  creates these documents.
+- **`RestockLog`** — audit trail per restock event. Creating one should also `$inc` the
+  matching `Stock.currentQty` (see `restockLogController.createRestockLog` — uses
+  `findOneAndUpdate` with `$inc` deliberately, not read-modify-write, to avoid a race between
+  the two devices). Still missing: a null-check on that `findOneAndUpdate` result to 404 when
+  `Stock` wasn't seeded for that `type`, and an optional `?type=` query filter on the list
+  endpoint (pagination is explicitly not needed at this scale — a 2-person shop restocking a
+  few times a day). Churro restocks are fixed packs of 50; stick/box are variable amounts.
+- **`SignatureRatio`** (`size`, `flavor`, `pieceCount`) — **not** used for stock deduction.
+  Since finished-churro stock is one unified pool, this exists purely to auto-fill the UI
+  when staff pick flavor `signature` on an order (e.g. size M → 3 docs telling staff how many
+  of each topping to apply). One document per (size, flavor) combo.
+- **`Expense`** — records purchases as a lump sum, deliberately *not* linked to any specific
+  `RestockLog` entry even when the same real purchase triggers both (two separate writes from
+  two separate forms). Intentional: some expenses (gas, rent, delivery costs) aren't tied to
+  any of the 3 stock types, so `Expense` has to stand alone rather than being keyed to `type`.
+- **`Round`** (`server/models/roundModel.js`; `name`, `openDate`, `deliveryDate` ≥
+  `openDate`, `isActive` default `true`) — a batch of orders; orders reference it by `_id`,
+  and names are deliberately **not** unique (names like "Friday batch" repeat; dates tell
+  them apart). Any number of rounds may be active at once, so the model must **not** carry
+  a unique index on `isActive`: the current file still has a partial unique index
+  (`{ isActive: 1 }`, `partialFilterExpression: { isActive: true }`) that enforces a single
+  active round — remove it from the schema **and** drop `isActive_1` from the Atlas
+  collection (Mongoose never drops indexes itself, so E11000 keeps firing otherwise).
+  `roundController.getActiveRound` uses `findOne({ isActive: true })` and must become a
+  list query (`find({ isActive: true })`, empty array = 200, not 404). `POST /` and
+  `PATCH /:id` in `roundRoutes.js` only have `protect`, no handlers yet; "end round" is
+  `PATCH` setting `isActive: false`.
+- **`Order`** (`server/models/orderModel.js`, rebuilt from the live design, not the old
+  commit) — `round` is a required `ObjectId` ref to `Round`. `items` is a non-empty array of
+  `{ flavor, size, addOns, quantity }` subdocuments (`_id: false`): `flavor` is
+  `original | cinnamon_sugar | chocolate_dip` (no `signature`), `size` is `S | M`, and
+  `addOns` is an array of `choc_dip | choc_pops | strawberry_freeze_dried` (empty = none;
+  Jui confirmed a line can have several, even though the design shows a radio group).
+  `deliveryFee` (enum `[0, 5, 10, 15]`, default `0`), `deliveryTime` (`"HH:mm"` string — a
+  time of day on the round's `deliveryDate`), `staffMember` (`Jui | Partner`),
+  `customerName` and `note` are the rest; the old `customerPhone`/`deliveryLocation` are
+  gone (the design has one free-text note for address/allergies). `isDone`/`isDelivered` are
+  independent booleans, not a sequential state machine (a courier can mark delivered
+  before someone marks done). Timestamps come from `timestamps: true` (`createdAt`).
+  `totalPrice` should conceptually be `itemsSubtotal + deliveryFee`, but nothing computes
+  it automatically; it's just a required field set directly.
+
+## Not yet implemented (the actual next steps)
+
+- **Order creation + auto stock deduction** — the hardest remaining piece. On order save, for
+  every item (after expanding `quantity`): `piecesPerItem = (size === 'S' ? 4 : 8) *
+  quantity`; `Stock(churro) -= Σ piecesPerItem`; `Stock(stick) -= same total`; `Stock(box) -=
+  1` flat per order (not per item). `isDone`/`isDelivered` should toggle via a separate
+  `PATCH /api/v1/orders/:id`, not by re-saving the whole order.
+- Low-stock alerts + a daily/cumulative summary (MongoDB aggregation), and wiring the
+  frontend's polling loop.
+- Auth (JWT + bcrypt, single shared role — not per-operator) and centralized error handling.
+  Deliberately last: no auth exists yet, which is fine pre-deployment but must land before
+  any real internet-facing deploy.
 
 ## Formatting
 
-Root `.prettierrc`: single quotes, `endOfLine: auto`. Applies repo-wide (no per-package override observed).
+Root `.prettierrc`: single quotes, `endOfLine: auto`. Applies repo-wide (no per-package
+override observed).
