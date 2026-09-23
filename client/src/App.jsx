@@ -1,5 +1,13 @@
 import { BrowserRouter, Route, Routes } from 'react-router';
+import Finances from '../pages/Finances.jsx';
+import Home from '../pages/Home.jsx';
 import Login from '../pages/Login.jsx';
+import NewExpense from '../pages/NewExpense.jsx';
+import NewOrder from '../pages/NewOrder.jsx';
+import NewRound from '../pages/NewRound.jsx';
+import Orders from '../pages/Orders.jsx';
+import Restock from '../pages/Restock.jsx';
+import Stock from '../pages/Stock.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 function App() {
@@ -8,8 +16,14 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<ProtectedRoute />}>
-          {/* Placeholder until the Home screen is built */}
-          <Route path="/" element={<div className="p-4">Home</div>} />
+          <Route path="/" element={<Home />} />
+          <Route path="/rounds/new" element={<NewRound />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/orders/new" element={<NewOrder />} />
+          <Route path="/restock" element={<Restock />} />
+          <Route path="/expenses/new" element={<NewExpense />} />
+          <Route path="/stock" element={<Stock />} />
+          <Route path="/finances" element={<Finances />} />
         </Route>
       </Routes>
     </BrowserRouter>
