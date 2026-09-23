@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Churo Bites — New round</title>
+<script src="./support.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Kanit:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body{margin:0;font-family:"Poppins","IBM Plex Sans Thai",ui-sans-serif,system-ui,sans-serif;background:#FFF2EB;color:#2B2118;}
+  a{color:#A85419;text-decoration:none;}
+  a:hover{color:#8A4515;}
+  input, select{font-family:inherit;}
+</style>
+</helmet>
+<div style="width:390px;min-height:640px;display:flex;flex-direction:column;background:#FFF2EB;box-sizing:border-box;">
+
+  <div style="background:#FFFFFF;border-bottom:1px solid #F5D3B8;padding:20px;display:flex;align-items:center;gap:12px;box-sizing:border-box;">
+    <a href="Main.dc.html" aria-label="Back to home" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;color:#2B2118;box-sizing:border-box;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+    </a>
+    <div style="font-family:'Poppins','Kanit',ui-sans-serif,system-ui,sans-serif;font-weight:600;font-size:18px;color:#2B2118;">New round</div>
+  </div>
+
+  <div style="flex:1;padding:20px;display:flex;flex-direction:column;gap:22px;">
+
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <label for="round-open" style="font-size:13px;font-weight:600;color:#5C5245;text-transform:uppercase;letter-spacing:0.04em;">Open date</label>
+      <input id="round-open" type="date" value="2026-09-18" style="min-height:44px;padding:0 14px;border-radius:6px;border:1px solid #F5D3B8;background:#FFFFFF;color:#2B2118;font-size:15px;box-sizing:border-box;">
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <label for="round-deliver" style="font-size:13px;font-weight:600;color:#5C5245;text-transform:uppercase;letter-spacing:0.04em;">Delivery date</label>
+      <input id="round-deliver" type="date" value="2026-09-18" style="min-height:44px;padding:0 14px;border-radius:6px;border:1px solid #F5D3B8;background:#FFFFFF;color:#2B2118;font-size:15px;box-sizing:border-box;">
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <label for="round-name" style="font-size:13px;font-weight:600;color:#5C5245;text-transform:uppercase;letter-spacing:0.04em;">Round name</label>
+      <input id="round-name" type="text" placeholder="e.g. Round 6" style="min-height:44px;padding:0 14px;border-radius:6px;border:1px solid #F5D3B8;background:#FFFFFF;color:#2B2118;font-size:15px;box-sizing:border-box;">
+    </div>
+
+    <button style="margin-top:6px;background:{{accent}};color:#FFFFFF;border:none;border-radius:10px;padding:14px;min-height:48px;font-size:16px;font-weight:600;cursor:pointer;box-sizing:border-box;">Create round</button>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#A85419","options":["#A85419","#FFDCDC","#FFE8CD","#FFD6BA"]}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#A85419' };
+  }
+}
+</script>
+</body>
+</html>

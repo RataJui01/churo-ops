@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Churo Bites — Orders</title>
+<script src="./support.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Kanit:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body{margin:0;font-family:"Poppins","IBM Plex Sans Thai",ui-sans-serif,system-ui,sans-serif;background:#FFF2EB;color:#2B2118;}
+  a{color:#A85419;text-decoration:none;}
+  a:hover{color:#8A4515;}
+</style>
+</helmet>
+<div style="width:390px;min-height:900px;display:flex;flex-direction:column;background:#FFF2EB;box-sizing:border-box;">
+
+  <div style="background:#FFFFFF;border-bottom:1px solid #F5D3B8;padding:20px 20px 16px;display:flex;flex-direction:column;gap:2px;box-sizing:border-box;">
+    <div style="font-family:'Poppins','Kanit',ui-sans-serif,system-ui,sans-serif;font-weight:600;font-size:20px;line-height:28px;color:#2B2118;">Churo Bites</div>
+    <div style="font-size:13px;line-height:18px;color:#5C5245;">Orders · 6 total, 2 pending</div>
+    <div style="background:#FFF2EB;border-radius:999px;padding:4px;display:flex;margin-top:14px;">
+      <a href="Main.dc.html" style="flex:1;display:flex;align-items:center;justify-content:center;min-height:40px;padding:4px 2px;border-radius:999px;color:#5C5245;font-size:13px;font-weight:500;box-sizing:border-box;">Home</a>
+      <a href="#" style="flex:1;display:flex;align-items:center;justify-content:center;min-height:40px;padding:4px 2px;border-radius:999px;background:{{accent}};color:#FFFFFF;font-size:13px;font-weight:600;box-sizing:border-box;">Orders</a>
+      <a href="Stock.dc.html" style="flex:1;display:flex;align-items:center;justify-content:center;min-height:40px;padding:4px 2px;border-radius:999px;color:#5C5245;font-size:13px;font-weight:500;box-sizing:border-box;">Stock</a>
+      <a href="Expenses.dc.html" style="flex:1;display:flex;align-items:center;justify-content:center;min-height:40px;padding:4px 2px;border-radius:999px;color:#5C5245;font-size:13px;font-weight:500;box-sizing:border-box;">Finances</a>
+    </div>
+  </div>
+
+  <div style="flex:1;padding:20px;display:flex;flex-direction:column;gap:16px;">
+
+    <div style="background:#FFFFFF;border-radius:10px;box-shadow:0 1px 2px rgba(43,33,24,0.06),0 1px 3px rgba(43,33,24,0.08);box-sizing:border-box;overflow:hidden;">
+      <button onClick="{{toggleRound5}}" style="display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:12px 14px;width:100%;cursor:pointer;border-bottom:{{round5HeaderBorder}};box-sizing:border-box;">
+        <span style="font-size:14px;font-weight:600;color:#2B2118;">Round 5</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:#5C5245;">3 orders · 2 pending</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5C5245" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate({{round5Rotation}}deg);transition:transform 0.15s;flex-shrink:0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+      </button>
+      <sc-if value="{{round5Open}}" hint-placeholder-val="{{true}}">
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box;">
+      <div style="display:flex;gap:6px;overflow-x:auto;">
+        <a href="#" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;min-height:30px;padding:4px 12px;border-radius:999px;background:#FFE8CD;color:#A85419;font-size:12px;font-weight:600;box-sizing:border-box;">All</a>
+        <a href="#" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;min-height:30px;padding:4px 12px;border-radius:999px;border:1px solid #F5D3B8;color:#5C5245;font-size:12px;font-weight:500;box-sizing:border-box;">Pending</a>
+        <a href="#" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;min-height:30px;padding:4px 12px;border-radius:999px;border:1px solid #F5D3B8;color:#5C5245;font-size:12px;font-weight:500;box-sizing:border-box;">Done</a>
+        <a href="#" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;min-height:30px;padding:4px 12px;border-radius:999px;border:1px solid #F5D3B8;color:#5C5245;font-size:12px;font-weight:500;box-sizing:border-box;">Delivered</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <a href="EditOrder.dc.html" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:1px solid #F2E3D5;">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <div style="font-size:14px;font-weight:500;">Order #180 · ฿150 · Boss</div>
+            <div style="font-size:12px;color:#5C5245;">Delivers 2:45 PM</div>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <div style="font-size:12px;color:#5C5245;">3x Original (S)</div>
+            </div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#DCFCE7;color:#15803D;border-radius:999px;padding:4px 10px 4px 8px;font-size:12px;font-weight:600;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.5 2.5 5-5"></path></svg>
+            Done
+          </span>
+        </a>
+
+        <a href="EditOrder.dc.html" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:1px solid #F2E3D5;">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <div style="font-size:14px;font-weight:500;">Order #182 · ฿120 · Nan</div>
+            <div style="font-size:12px;color:#5C5245;">Delivers 3:00 PM</div>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <div style="font-size:12px;color:#5C5245;">1x Original (M)</div>
+              <div style="font-size:12px;color:#5C5245;">1x Chocolate dip (M)</div>
+            </div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#FFE8CD;color:#B45309;border-radius:999px;padding:4px 10px 4px 8px;font-size:12px;font-weight:600;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+            Pending
+          </span>
+        </a>
+
+        <a href="EditOrder.dc.html" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <div style="font-size:14px;font-weight:500;">Order #179 · ฿160 · Mint</div>
+            <div style="font-size:12px;color:#5C5245;">Delivers 3:15 PM</div>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <div style="font-size:12px;color:#5C5245;">2x Chocolate dip (M)</div>
+            </div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#FFE8CD;color:#B45309;border-radius:999px;padding:4px 10px 4px 8px;font-size:12px;font-weight:600;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+            Pending
+          </span>
+        </a>
+
+      </div>
+      </div>
+      </sc-if>
+    </div>
+
+    <div style="background:#FFFFFF;border-radius:10px;box-shadow:0 1px 2px rgba(43,33,24,0.06),0 1px 3px rgba(43,33,24,0.08);box-sizing:border-box;overflow:hidden;">
+      <button onClick="{{toggleRound4}}" style="display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:12px 14px;width:100%;cursor:pointer;border-bottom:{{round4HeaderBorder}};box-sizing:border-box;">
+        <span style="font-size:14px;font-weight:600;color:#2B2118;">Round 4</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:#5C5245;">3 orders</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5C5245" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate({{round4Rotation}}deg);transition:transform 0.15s;flex-shrink:0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+      </button>
+      <sc-if value="{{round4Open}}" hint-placeholder-val="{{true}}">
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;">
+
+        <a href="EditOrder.dc.html" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:1px solid #F2E3D5;">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <div style="font-size:14px;font-weight:500;">Order #177 · ฿180 · Fah</div>
+            <div style="font-size:12px;color:#5C5245;">Delivers 12:45 PM</div>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <div style="font-size:12px;color:#5C5245;">4x Cinnamon sugar (S)</div>
+            </div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#DBEAFE;color:#1D4ED8;border-radius:999px;padding:4px 10px 4px 8px;font-size:12px;font-weight:600;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
+            Delivered
+          </span>
+        </a>
+
+        <a href="EditOrder.dc.html" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:1px solid #F2E3D5;">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <div style="font-size:14px;font-weight:500;">Order #178 · ฿70 · Golf</div>
+            <div style="font-size:12px;color:#5C5245;">Delivers 1:00 PM</div>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <div style="font-size:12px;color:#5C5245;">1x Original (M)</div>
+            </div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#DCFCE7;color:#15803D;border-radius:999px;padding:4px 10px 4px 8px;font-size:12px;font-weight:600;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.5 2.5 5-5"></path></svg>
+            Done
+          </span>
+        </a>
+
+        <a href="EditOrder.dc.html" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <div style="font-size:14px;font-weight:500;">Order #181 · ฿85 · Ploy</div>
+            <div style="font-size:12px;color:#5C5245;">Delivers 1:30 PM</div>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <div style="font-size:12px;color:#5C5245;">1x Chocolate dip (M)</div>
+            </div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#DBEAFE;color:#1D4ED8;border-radius:999px;padding:4px 10px 4px 8px;font-size:12px;font-weight:600;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
+            Delivered
+          </span>
+        </a>
+
+      </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#A85419","options":["#A85419","#FFDCDC","#FFE8CD","#FFD6BA"]}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { round5Open: true, round4Open: true };
+    this.toggleRound5 = this.toggleRound5.bind(this);
+    this.toggleRound4 = this.toggleRound4.bind(this);
+  }
+  toggleRound5() {
+    this.setState({ round5Open: !this.state.round5Open });
+  }
+  toggleRound4() {
+    this.setState({ round4Open: !this.state.round4Open });
+  }
+  renderVals() {
+    return {
+      accent: this.props.accent ?? '#A85419',
+      round5Open: this.state.round5Open,
+      round4Open: this.state.round4Open,
+      round5Rotation: this.state.round5Open ? 0 : -90,
+      round4Rotation: this.state.round4Open ? 0 : -90,
+      round5HeaderBorder: this.state.round5Open ? '1px solid #F5D3B8' : 'none',
+      round4HeaderBorder: this.state.round4Open ? '1px solid #F5D3B8' : 'none',
+      toggleRound5: this.toggleRound5,
+      toggleRound4: this.toggleRound4
+    };
+  }
+}
+</script>
+</body>
+</html>

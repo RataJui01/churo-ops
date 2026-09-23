@@ -5,3 +5,5 @@ server/scripts/
 dist/
 .DS_Store
 *.eslintcache
+.agents/
+.claude/

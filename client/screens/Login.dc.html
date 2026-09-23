@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Churo Bites — Log in</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Kanit:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body{margin:0;font-family:"Poppins","IBM Plex Sans Thai",ui-sans-serif,system-ui,sans-serif;background:#FFF2EB;color:#2B2118;}
+  a{color:#A85419;text-decoration:none;}
+  a:hover{color:#8A4515;}
+  input{font-family:inherit;}
+</style>
+</helmet>
+<div style="width:390px;min-height:844px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FFF2EB;box-sizing:border-box;padding:24px;">
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:32px;">
+    <div style="font-family:'Poppins','Kanit',ui-sans-serif,system-ui,sans-serif;font-weight:600;font-size:24px;color:#2B2118;">Churo Bites</div>
+    <div style="font-size:13px;color:#5C5245;">Ops Dashboard</div>
+  </div>
+
+  <div style="width:100%;background:#FFFFFF;border-radius:10px;padding:24px 20px;display:flex;flex-direction:column;gap:20px;box-shadow:0 1px 2px rgba(43,33,24,0.06),0 1px 3px rgba(43,33,24,0.08);box-sizing:border-box;">
+
+    <div style="font-family:'Poppins','Kanit',ui-sans-serif,system-ui,sans-serif;font-weight:600;font-size:18px;color:#2B2118;">Log in</div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <label for="login-email" style="font-size:13px;font-weight:600;color:#5C5245;text-transform:uppercase;letter-spacing:0.04em;">Email</label>
+      <input id="login-email" type="email" placeholder="you@example.com" style="min-height:44px;padding:0 14px;border-radius:6px;border:1px solid #F5D3B8;background:#FFFFFF;color:#2B2118;font-size:15px;box-sizing:border-box;">
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <label for="login-password" style="font-size:13px;font-weight:600;color:#5C5245;text-transform:uppercase;letter-spacing:0.04em;">Password</label>
+      <input id="login-password" type="password" placeholder="••••••••" style="min-height:44px;padding:0 14px;border-radius:6px;border:1px solid #F5D3B8;background:#FFFFFF;color:#2B2118;font-size:15px;box-sizing:border-box;">
+    </div>
+
+    <a href="Main.dc.html" style="display:flex;align-items:center;justify-content:center;background:{{accent}};color:#FFFFFF;border-radius:10px;padding:14px;min-height:48px;font-size:16px;font-weight:600;box-sizing:border-box;">Log in</a>
+
+    <div style="text-align:center;font-size:12px;color:#5C5245;">Trouble logging in? Ask your co-owner for help.</div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#A85419","options":["#A85419","#FFDCDC","#FFE8CD","#FFD6BA"]}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#A85419' };
+  }
+}
+</script>
+</body>
+</html>
