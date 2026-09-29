@@ -16,7 +16,14 @@ const orderItemSchema = new mongoose.Schema(
     size: {
       type: String,
       enum: ['S', 'M'],
-      required: [true, 'Please choose a size'],
+      // strawberry_nutella_bite comes in one size only, so it has no size.
+      // A normal function (not an arrow) because Mongoose passes the item as `this`
+      required: [
+        function () {
+          return this.flavor !== 'strawberry_nutella_bite';
+        },
+        'Please choose a size',
+      ],
     },
     // Empty array = no add-on
     addOns: [
@@ -25,6 +32,11 @@ const orderItemSchema = new mongoose.Schema(
         enum: ['choc_dip', 'choc_pops', 'strawberry_freeze_dried'],
       },
     ],
+    // Customer wants the dip/topping in a separate cup instead of on the churros
+    separateAddOns: {
+      type: Boolean,
+      default: false,
+    },
     quantity: {
       type: Number,
       default: 1,
@@ -65,15 +77,19 @@ const orderSchema = new mongoose.Schema(
     deliveryTime: {
       type: String,
       match: [/^([01]\d|2[0-3]):[0-5]\d$/, 'Delivery time must be HH:mm'],
+      required: [true, 'Please choose a delivery time'],
     },
+    // Set by the server from the logged-in account's name, not sent by the client
     staffMember: {
       type: String,
       enum: ['Jui', 'Impact'],
       required: [true, 'Please say who added this order'],
     },
+    // Name or LINE ID — required so whoever delivers knows whose order it is
     customerName: {
       type: String,
       trim: true,
+      required: [true, "Please enter the customer's name"],
     },
     // Delivery address, allergy notes, etc.
     note: {

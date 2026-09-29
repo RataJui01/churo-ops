@@ -2,6 +2,18 @@ const Round = require('../models/roundModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 
+exports.getAllRounds = catchAsync(async (req, res, next) => {
+  const rounds = await Round.find().sort('-deliveryDate');
+
+  res.status(200).json({
+    status: 'success',
+    results: rounds.length,
+    data: {
+      rounds,
+    },
+  });
+});
+
 exports.getActiveRounds = catchAsync(async (req, res, next) => {
   const activeRounds = await Round.find({ isActive: true }).sort(
     'deliveryDate',

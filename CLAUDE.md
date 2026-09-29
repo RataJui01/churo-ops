@@ -114,7 +114,8 @@ gitignored `server/scripts/` scripts (see below); that folder doesn't currently 
   built**; orders belong to an ad-hoc **Round** (name, open date, delivery date) chosen from
   a dropdown; the UI shows status as one exclusive Pending/Done/Delivered radio group even
   though the backend keeps `isDone`/`isDelivered` as two booleans; staff are "Jui" /
-  "Partner".
+  "Impact" (the mockups still say "Partner"; the code's enum is the one in use, confirmed
+  2026-09-23).
 - **Multiple rounds can be active at once** (design update, supersedes the old "one active
   round" assumption). Consequences in the design: Home has no single-round bar or
   pending/earnings stat cards anymore — it shows an **Active rounds** list (one row per
@@ -128,9 +129,15 @@ gitignored `server/scripts/` scripts (see below); that folder doesn't currently 
   `GET /orders?round=<id>` (earnings = sum of `totalPrice`) with loading/error/empty states,
   polling every 7s; "End round" is wired to `PATCH /rounds/:id` (no confirmation step, by
   design — confirmed with Jui), with a failed PATCH leaving the round list on screen and
-  showing a small inline error instead of the full-page error state; `/rounds/new` is a
-  stub route (`NewRound.jsx`, "Coming soon"). Not built yet: the actual new-round form,
-  grouped Orders page, New order's round select.
+  showing a small inline error instead of the full-page error state. Also built: the
+  New round form (`NewRound.jsx`), the grouped Orders page (`RoundOrderGroup`), and the
+  New order form (`NewOrder.jsx` = `ItemBuilder` + `OrderItemList` + round/delivery/customer
+  fields + Subtotal/Total footer → `POST /orders`, then `/orders` with that round expanded
+  via router state `openRoundId`). Form screens use `SubPageShell` (back arrow + title, no
+  tab nav) instead of `AppShell`; shared form class strings live in
+  `src/components/formClasses.js`. `ItemBuilder` has a "Clear selection" button that isn't
+  in the design — NewOrder refuses to submit while a flavor is picked but not added, and a
+  radio can't be unticked, so it's the only way out (Jui, 2026-09-29).
 - Swipe-to-end has no keyboard/screen-reader path other than tabbing to the (visually
   hidden) button, and no confirmation step — neither is in the design; raise with Jui
   before adding either.
@@ -197,13 +204,32 @@ pre-made with flavor applied only at sale time.
   `PATCH` setting `isActive: false`.
 - **`Order`** (`server/models/orderModel.js`, rebuilt from the live design, not the old
   commit) — `round` is a required `ObjectId` ref to `Round`. `items` is a non-empty array of
-  `{ flavor, size, addOns, quantity }` subdocuments (`_id: false`): `flavor` is
-  `original | cinnamon_sugar | chocolate_dip` (no `signature`), `size` is `S | M`, and
-  `addOns` is an array of `choc_dip | choc_pops | strawberry_freeze_dried` (empty = none;
-  Jui confirmed a line can have several, even though the design shows a radio group).
+  `{ flavor, size, addOns, separateAddOns, quantity }` subdocuments (`_id: false`): `flavor` is
+  `plain | chocolate | strawberry | signature | strawberry_nutella_bite`, `size` is `S | M`
+  and required for every flavor **except `strawberry_nutella_bite`, which has no size** (one
+  size only, stored with no `size` field, not a fake `S` — decided 2026-09-25), and `addOns`
+  is an array of `choc_dip | choc_pops | strawberry_freeze_dried` (empty = none; a line can
+  have several, so the New Order picker is checkboxes, not the design's radio group).
+  `separateAddOns` (default `false`) is the "Serve dip/topping separately" checkbox — despite
+  the name it is **not** only about add-ons: every flavor already comes with its own
+  dip/topping, so it means "put the flavor's topping (and any add-ons) in a separate cup" and
+  is meaningful even with an empty `addOns` (Jui, 2026-09-25). Add-ons are just paid extras. Prices
+  live in `client/src/constants/prices.js` (real prices from Jui, 2026-09-25): use its
+  `getLinePrice(item)` — `(base + ฿10 × addOns.length) × quantity` — rather than
+  recomputing a line total anywhere else. Labels
+  for the flavor enum live in `client/src/constants/flavors.js` (`FLAVOR_LABELS`), shared by
+  `OrderRow` and the future EditOrder page — **the live `Orders.dc.html`/`NewOrder.dc.html`
+  mockups still show the older 3-flavor menu (Original/Cinnamon sugar/Chocolate dip, no
+  `signature`) and need a manual update from Jui**; the code's enum is the one actually in
+  use, confirmed 2026-09-23.
   `deliveryFee` (enum `[0, 5, 10, 15]`, default `0`), `deliveryTime` (`"HH:mm"` string — a
-  time of day on the round's `deliveryDate`), `staffMember` (`Jui | Partner`),
-  `customerName` and `note` are the rest; the old `customerPhone`/`deliveryLocation` are
+  time of day on the round's `deliveryDate`, **required**), `staffMember` (`Jui | Impact`),
+  `customerName` (name or LINE ID, **required**) and `note` (optional) are the rest.
+  `staffMember` is **set by the server** from the logged-in account (`req.user.name` in
+  `createOrder`), never taken from the request body, so the New order form has no "Added by"
+  field (dropped from the design, Jui 2026-09-25). This relies on each account's `name`
+  being exactly `Jui` or `Impact` — renaming an account or adding a third person means
+  updating the enum too. The old `customerPhone`/`deliveryLocation` are
   gone (the design has one free-text note for address/allergies). `isDone`/`isDelivered` are
   independent booleans, not a sequential state machine (a courier can mark delivered
   before someone marks done). Timestamps come from `timestamps: true` (`createdAt`).
@@ -215,13 +241,16 @@ pre-made with flavor applied only at sale time.
 - **Order creation + auto stock deduction** — the hardest remaining piece. On order save, for
   every item (after expanding `quantity`): `piecesPerItem = (size === 'S' ? 4 : 8) *
   quantity`; `Stock(churro) -= Σ piecesPerItem`; `Stock(stick) -= same total`; `Stock(box) -=
-  1` flat per order (not per item). `isDone`/`isDelivered` should toggle via a separate
+  1` flat per order (not per item). **Open question for Jui:** how many churro/stick pieces a
+  `strawberry_nutella_bite` uses — it has no size, so the `S ? 4 : 8` rule can't apply to it.
+  `isDone`/`isDelivered` should toggle via a separate
   `PATCH /api/v1/orders/:id`, not by re-saving the whole order.
 - Low-stock alerts + a daily/cumulative summary (MongoDB aggregation), and wiring the
   frontend's polling loop.
-- Auth (JWT + bcrypt, single shared role — not per-operator) and centralized error handling.
-  Deliberately last: no auth exists yet, which is fine pre-deployment but must land before
-  any real internet-facing deploy.
+- Auth is in place (JWT + bcrypt, `protect` on every order/round route): **one account per
+  person** (`name` = `Jui` / `Impact`, created with `server/scripts/seedAccount.js`), both
+  with the same permissions — no roles. Centralized error handling still needs a review
+  before any real internet-facing deploy.
 
 ## Formatting
 

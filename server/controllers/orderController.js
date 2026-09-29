@@ -35,7 +35,10 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     deliveryFee: req.body.deliveryFee,
     totalPrice: req.body.totalPrice,
     deliveryTime: req.body.deliveryTime,
-    staffMember: req.body.staffMember,
+    // Whoever is logged in added the order — taken from the token (protect sets
+    // req.user), never from the body, so it can't be picked wrong or faked.
+    // Works because each account's name is exactly 'Jui' or 'Impact' (the enum).
+    staffMember: req.user.name,
     customerName: req.body.customerName,
     note: req.body.note,
   });
