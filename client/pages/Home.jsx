@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { apiFetch } from '../src/api.js';
+import { useState } from 'react';
+import { getJson } from '../src/api.js';
+import { usePolling } from '../src/hooks/usePolling.js';
 import ActiveRounds from '../src/components/ActiveRounds.jsx';
 import AppShell from '../src/components/AppShell.jsx';
 import QuickActions from '../src/components/QuickActions.jsx';
@@ -14,11 +15,6 @@ const STOCK_PREVIEW = [
   { name: 'Cups (L)', quantity: 12, unit: 'pcs', lowStockThreshold: 20 },
 ];
 
-// Two operators take orders on separate phones with a shared backend, kept in
-// sync by polling rather than websockets (see CLAUDE.md) — 7s sits in the
-// middle of the agreed 5-10s range.
-const POLL_INTERVAL_MS = 7000;
-
 // Builds "Tuesday, 16 September" (en-GB alone gives no comma)
 function formatToday() {
   const now = new Date();
@@ -28,14 +24,6 @@ function formatToday() {
     month: 'long',
   });
   return `${weekday}, ${dayMonth}`;
-}
-
-// fetch + parse JSON, throwing the server's message on a non-2xx response
-async function getJson(path, options) {
-  const res = await apiFetch(path, options);
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? 'Something went wrong');
-  return body;
 }
 
 // Every active round with its earnings (sum of all its orders' totalPrice)
@@ -52,57 +40,15 @@ async function loadRounds() {
 }
 
 function Home() {
-  // null = still loading
-  const [rounds, setRounds] = useState(null);
-  const [error, setError] = useState('');
-  // Bumping this re-runs the effect below ("Try again")
-  const [attempt, setAttempt] = useState(0);
+  const {
+    data: rounds,
+    setData: setRounds,
+    error,
+    retry,
+  } = usePolling(loadRounds);
   // Separate from `error`: a failed "End round" shouldn't replace the whole
   // rounds list with the full-page error state used for the initial load.
   const [endRoundError, setEndRoundError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    // Local to this effect run, not React state: lets a later poll tell "the
-    // very first load" apart from "a refresh that happened to fail" without
-    // re-running (and re-arming) the interval on every successful fetch.
-    let hasLoadedOnce = false;
-
-    async function refresh() {
-      try {
-        const loaded = await loadRounds();
-        if (cancelled) return;
-        setRounds(loaded);
-        setError('');
-        hasLoadedOnce = true;
-      } catch (err) {
-        if (cancelled) return;
-        // Only the initial load shows a full error state; a poll that fails
-        // later just keeps the last known data on screen until the next tick.
-        if (!hasLoadedOnce) {
-          // fetch only rejects (TypeError) on network failure
-          setError(
-            err instanceof TypeError
-              ? 'Cannot reach the server. Check your connection.'
-              : err.message,
-          );
-        }
-      }
-    }
-
-    refresh();
-    const intervalId = setInterval(refresh, POLL_INTERVAL_MS);
-
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-    };
-  }, [attempt]);
-
-  function retry() {
-    setError('');
-    setAttempt(attempt + 1);
-  }
 
   // No confirmation step before closing a round (matches the design, and
   // Jui confirmed it stays that way) — a swipe + tap ends it right away.

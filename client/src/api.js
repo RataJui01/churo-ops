@@ -25,3 +25,12 @@ export async function apiFetch(path, options = {}) {
 
   return res;
 }
+
+// fetch + parse JSON, throwing the server's message on a non-2xx response.
+// Shared by every page that needs typed data instead of a raw Response.
+export async function getJson(path, options) {
+  const res = await apiFetch(path, options);
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.message ?? 'Something went wrong');
+  return body;
+}
