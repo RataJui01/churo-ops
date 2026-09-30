@@ -6,15 +6,8 @@ import SubPageShell from '../src/components/SubPageShell.jsx';
 import ItemBuilder from '../src/components/ItemBuilder.jsx';
 import OrderItemList from '../src/components/OrderItemList.jsx';
 import SectionLabel from '../src/components/SectionLabel.jsx';
-import {
-  inputClass,
-  labelClass,
-  legendClass,
-  optionClass,
-} from '../src/components/formClasses.js';
-
-// Matches orderModel.js's deliveryFee enum
-const DELIVERY_FEES = [0, 5, 10, 15];
+import DeliveryFeePicker from '../src/components/DeliveryFeePicker.jsx';
+import { inputClass, labelClass } from '../src/components/formClasses.js';
 
 // "Friday batch · 26 Sep" — round names can repeat, the delivery date tells
 // them apart
@@ -156,29 +149,7 @@ function NewOrder() {
           )}
         </div>
 
-        <fieldset className="min-w-0">
-          <legend className={legendClass}>Delivery</legend>
-          <div className="flex flex-wrap gap-2">
-            {DELIVERY_FEES.map((fee) => (
-              <span key={fee}>
-                <input
-                  type="radio"
-                  id={`delivery-fee-${fee}`}
-                  name="delivery-fee"
-                  checked={deliveryFee === fee}
-                  onChange={() => setDeliveryFee(fee)}
-                  className="peer sr-only"
-                />
-                <label
-                  htmlFor={`delivery-fee-${fee}`}
-                  className={`${optionClass} justify-center rounded-pill px-4 py-2`}
-                >
-                  {fee === 0 ? 'Free' : `฿${fee}`}
-                </label>
-              </span>
-            ))}
-          </div>
-        </fieldset>
+        <DeliveryFeePicker value={deliveryFee} onChange={setDeliveryFee} />
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="order-round" className={labelClass}>

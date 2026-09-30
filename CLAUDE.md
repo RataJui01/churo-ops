@@ -137,7 +137,12 @@ gitignored `server/scripts/` scripts (see below); that folder doesn't currently 
   tab nav) instead of `AppShell`; shared form class strings live in
   `src/components/formClasses.js`. `ItemBuilder` has a "Clear selection" button that isn't
   in the design — NewOrder refuses to submit while a flavor is picked but not added, and a
-  radio can't be unticked, so it's the only way out (Jui, 2026-09-29).
+  radio can't be unticked, so it's the only way out (Jui, 2026-09-29). The Edit order page
+  (`EditOrder.jsx`, `/orders/:id`) is built too: status radio saves on tap (optimistic,
+  reverted on failure), "Add another item" opens `ItemBuilder` inline, "Save changes" PATCHes
+  items/delivery/customer/note/totalPrice, and "Cancel order" needs two taps (Jui's call —
+  unlike End round, it sits right under Save); both return to `/orders` with the round
+  expanded. `DeliveryFeePicker` is shared by NewOrder and EditOrder.
 - Swipe-to-end has no keyboard/screen-reader path other than tabbing to the (visually
   hidden) button, and no confirmation step — neither is in the design; raise with Jui
   before adding either.
@@ -232,7 +237,17 @@ pre-made with flavor applied only at sale time.
   updating the enum too. The old `customerPhone`/`deliveryLocation` are
   gone (the design has one free-text note for address/allergies). `isDone`/`isDelivered` are
   independent booleans, not a sequential state machine (a courier can mark delivered
-  before someone marks done). Timestamps come from `timestamps: true` (`createdAt`).
+  before someone marks done) — but EditOrder's one-choice status radio sends
+  `STATUS_FLAGS` from `client/src/constants/orderStatus.jsx`, where Delivered sets
+  **both** to `true`. `isCancelled` (default `false`) is a soft-cancel: the document stays in
+  Atlas, but `getAllOrders` filters `{ isCancelled: { $ne: true } }` so cancelled orders
+  vanish from every list and total in the app (`$ne: true`, not `false`, so orders saved
+  before the field existed still match). `GET /orders/:id` returns cancelled orders too
+  (EditOrder shows "This order was cancelled."). `PATCH /orders/:id` (`updateOrder`)
+  whitelists `EDITABLE_FIELDS` (no `staffMember`, no `round`), refuses an already-cancelled
+  order, and uses `findById` + `set` + `save()` rather than `findByIdAndUpdate`, so the full
+  schema validation runs (incl. the `size` rule, which reads `this.flavor`) and only changed
+  paths are written. Timestamps come from `timestamps: true` (`createdAt`).
   `totalPrice` should conceptually be `itemsSubtotal + deliveryFee`, but nothing computes
   it automatically; it's just a required field set directly.
 

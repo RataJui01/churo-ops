@@ -104,6 +104,12 @@ const orderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Soft-cancel: the order stays in the database for the records, but
+    // getAllOrders leaves it out so it never counts toward any total
+    isCancelled: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );
