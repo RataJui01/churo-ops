@@ -1,13 +1,8 @@
 import { useState } from 'react';
+import { orderStatus } from '../constants/orderStatus.jsx';
 import OrderRow from './OrderRow.jsx';
 
 const FILTERS = ['all', 'pending', 'done', 'delivered'];
-
-function orderStatus(order) {
-  if (order.isDelivered) return 'delivered';
-  if (order.isDone) return 'done';
-  return 'pending';
-}
 
 // round: { _id, name, ... }; orders: that round's Order[], already fetched
 // by the parent — this component doesn't fetch anything itself.
