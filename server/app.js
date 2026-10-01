@@ -11,9 +11,9 @@ const userRouter = require('./routes/userRoutes');
 const roundRouter = require('./routes/roundRoutes');
 // const expenseRouter = require('./routes/expenseRoutes');
 const orderRouter = require('./routes/orderRoutes');
-// const restockLogRouter = require('./routes/restockLogRoutes');
+const stockItemRouter = require('./routes/stockItemRoutes');
+const restockRouter = require('./routes/restockRoutes');
 // const signatureRatioRouter = require('./routes/signatureRatioRoutes');
-// const stockRouter = require('./routes/stockRoutes');
 
 app.use(cors());
 app.use(express.json());
@@ -27,9 +27,9 @@ app.use('/api/v1/users', userRouter);
 app.use('/api/v1/rounds', roundRouter);
 // app.use('/api/v1/expenses', expenseRouter);
 app.use('/api/v1/orders', orderRouter);
-// app.use('/api/v1/restock', restockLogRouter);
+app.use('/api/v1/stock-items', stockItemRouter);
+app.use('/api/v1/restocks', restockRouter);
 // app.use('/api/v1/signatureRatio', signatureRatioRouter);
-// app.use('/api/v1/stocks', stockRouter);
 
 app.all('/{*splat}', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));

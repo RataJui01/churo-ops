@@ -26,6 +26,14 @@ export async function apiFetch(path, options = {}) {
   return res;
 }
 
+// The text to show for a failed request: fetch only rejects (TypeError) on a
+// network failure; anything else carries the server's own message
+export function errorMessage(err) {
+  return err instanceof TypeError
+    ? 'Cannot reach the server. Check your connection.'
+    : err.message;
+}
+
 // fetch + parse JSON, throwing the server's message on a non-2xx response.
 // Shared by every page that needs typed data instead of a raw Response.
 export async function getJson(path, options) {
