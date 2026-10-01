@@ -146,8 +146,10 @@ gitignored `server/scripts/` scripts (see below); that folder doesn't currently 
 - Swipe-to-end has no keyboard/screen-reader path other than tabbing to the (visually
   hidden) button, and no confirmation step — neither is in the design; raise with Jui
   before adding either.
-- `Stock.dc.html` tracks raw ingredients, which is **wrong** for this business (pre-made
-  churros bought in packs of 50). Don't build Stock from it — confirm the item list with Jui.
+- Stock follows the live design's **user-defined items** (Jui, 2026-09-30): Restock takes a
+  free-text item name (existing name = top up, new name = start tracking it) with a kg/L/pcs
+  unit. The design's example items (Flour, Sugar…) are just placeholders. See the
+  `StockItem` bullet under Domain model; the plan lives in `todo.TODO` (9-30-26).
 - Form inputs must be ≥16px font (iOS Safari zooms on focus otherwise); the mockups' 15px is a
   known bug. Primary buttons 48px/16px text vs secondary 44px/14px is intentional.
 
@@ -177,16 +179,38 @@ churro/stick/box share the same shape, and a churro-only `ProductionLog` was gen
 tracking — that was in an earlier design, dropped once it came out that churros are bought
 pre-made with flavor applied only at sale time.
 
-- **`Stock`** (`type` enum, `currentQty`, `lowStockThreshold`) — exactly 3 documents ever
-  exist, one per type. Must be seeded manually (`server/scripts/seedStock.js`); nothing else
-  creates these documents.
-- **`RestockLog`** — audit trail per restock event. Creating one should also `$inc` the
-  matching `Stock.currentQty` (see `restockLogController.createRestockLog` — uses
-  `findOneAndUpdate` with `$inc` deliberately, not read-modify-write, to avoid a race between
-  the two devices). Still missing: a null-check on that `findOneAndUpdate` result to 404 when
-  `Stock` wasn't seeded for that `type`, and an optional `?type=` query filter on the list
-  endpoint (pagination is explicitly not needed at this scale — a 2-person shop restocking a
-  few times a day). Churro restocks are fixed packs of 50; stick/box are variable amounts.
+- **`StockItem`** (`server/models/stockItemModel.js`, built 2026-10-01 — **replaces** the old
+  fixed 3-type `Stock` from commit `af86b78`): `name` (user-defined, unique case-insensitively
+  via a collation-strength-2 index; always look up with the `findByName` /
+  `findSortedByName` statics so the collation can't be forgotten),
+  `unit` (`kg | L | pcs`), `quantity`, `lowStockThreshold`, plus `usedPerPiece` /
+  `usedPerOrder` (default `0`). `quantity` has no min on purpose (deduction may push it
+  below 0). Unit and staff enums are shared via `server/constants/units.js` /
+  `staffMembers.js`. Auto-deduction rules are **data on each item, not code**:
+  creating an order takes `usedPerPiece × churro pieces in the order + usedPerOrder` from
+  every item; `0`/`0` = never auto-deducted (for things too hard to count, e.g. dips). So a
+  new item can start auto-deducting by editing two numbers, no code change. Churro / Stick /
+  Box are seeded (`server/scripts/seedStock.js`) with usedPerPiece 1/1/0 and usedPerOrder
+  0/0/1; they have no special key and are ordinary, deletable items. Only two rule shapes
+  exist (per churro piece, per order) — anything else (per flavor, per add-on) needs code.
+- **`RestockLog`** (`server/models/restockLogModel.js`, built 2026-10-01) — one entry per
+  restock: `stockItem` ref (name shown via populate), `quantity` (> 0), `unit` copied at the
+  time, `staffMember` from `req.user.name`, timestamps. `POST /api/v1/restocks`
+  (`restockController.createRestock`) validates quantity/unit first, finds or creates the
+  item (an E11000 from a simultaneous create falls back to the other phone's item), writes
+  the log, **then** raises the item's `quantity` with `findByIdAndUpdate` + `$inc` (atomic,
+  since both phones can restock at once — not read-modify-write; no transaction, log-first
+  so a failure leaves a visible entry rather than an unlogged change). Client side: Restock
+  form (`Restock.jsx`), Stock page (`Stock.jsx`, polled 7s), Home's `StockPreview` (max 5,
+  Out → Low → rest); shared helpers in `client/src/constants/stock.js` and the
+  `StockLevel` / `StockBadge` components. The Stock page shows only the 20 newest
+  entries (server-side limit). Decided 2026-09-30: restock names match trimmed +
+  case-insensitively (collation strength 2); an existing item's unit locks the Restock
+  form's Unit select, and the server rejects a mismatched unit; new items start at
+  `lowStockThreshold: 0`; churro restocks are free amounts like any item (the old
+  "packs of 50" rule is dropped). Badge rule, shared by Stock and Home: `quantity ≤ 0` →
+  red **Out** (not in the design — the design's "Low when quantity < threshold" never
+  fires at threshold 0), else `quantity < lowStockThreshold` → peach **Low**.
 - **`SignatureRatio`** (`size`, `flavor`, `pieceCount`) — **not** used for stock deduction.
   Since finished-churro stock is one unified pool, this exists purely to auto-fill the UI
   when staff pick flavor `signature` on an order (e.g. size M → 3 docs telling staff how many
@@ -253,10 +277,11 @@ pre-made with flavor applied only at sale time.
 
 ## Not yet implemented (the actual next steps)
 
-- **Order creation + auto stock deduction** — the hardest remaining piece. On order save, for
-  every item (after expanding `quantity`): `piecesPerItem = (size === 'S' ? 4 : 8) *
-  quantity`; `Stock(churro) -= Σ piecesPerItem`; `Stock(stick) -= same total`; `Stock(box) -=
-  1` flat per order (not per item). **Open question for Jui:** how many churro/stick pieces a
+- **Auto stock deduction on orders** — the hardest remaining piece. Churro pieces in an
+  order = `Σ (size === 'S' ? 4 : 8) × quantity` over its items; then every `StockItem`
+  loses `usedPerPiece × pieces + usedPerOrder` (so Churro and Stick lose one per piece, Box
+  one per order, with the seeded values). Still to decide: whether editing an order's items
+  or cancelling it gives the stock back. **Open question for Jui:** how many churro/stick pieces a
   `strawberry_nutella_bite` uses — it has no size, so the `S ? 4 : 8` rule can't apply to it.
   `isDone`/`isDelivered` should toggle via a separate
   `PATCH /api/v1/orders/:id`, not by re-saving the whole order.

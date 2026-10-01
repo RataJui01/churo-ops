@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { getJson } from '../src/api.js';
+import { errorMessage, getJson } from '../src/api.js';
 import { getLinePrice } from '../src/constants/prices.js';
 import {
   STATUS_FLAGS,
@@ -17,14 +17,6 @@ import {
   labelClass,
   legendClass,
 } from '../src/components/formClasses.js';
-
-// fetch only rejects (TypeError) on network failure; anything else carries
-// the server's message
-function errorMessage(err) {
-  return err instanceof TypeError
-    ? 'Cannot reach the server. Check your connection.'
-    : err.message;
-}
 
 function EditOrder() {
   const { id } = useParams();

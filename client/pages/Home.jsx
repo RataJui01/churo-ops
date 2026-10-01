@@ -5,15 +5,7 @@ import ActiveRounds from '../src/components/ActiveRounds.jsx';
 import AppShell from '../src/components/AppShell.jsx';
 import QuickActions from '../src/components/QuickActions.jsx';
 import StockPreview from '../src/components/StockPreview.jsx';
-
-// Stock preview stays hardcoded until the Stock page exists
-const STOCK_PREVIEW = [
-  { name: 'Flour', quantity: 8, unit: 'kg', lowStockThreshold: 2 },
-  { name: 'Cinnamon sugar', quantity: 1.5, unit: 'kg', lowStockThreshold: 2 },
-  { name: 'Chocolate dip', quantity: 3, unit: 'L', lowStockThreshold: 1 },
-  { name: 'Cups (M)', quantity: 40, unit: 'pcs', lowStockThreshold: 20 },
-  { name: 'Cups (L)', quantity: 12, unit: 'pcs', lowStockThreshold: 20 },
-];
+import { pickPreviewItems } from '../src/constants/stock.js';
 
 // Builds "Tuesday, 16 September" (en-GB alone gives no comma)
 function formatToday() {
@@ -39,7 +31,20 @@ async function loadRounds() {
   );
 }
 
+// Up to 5 stock items, Out and Low first (see pickPreviewItems)
+async function loadStockItems() {
+  const { data } = await getJson('/api/v1/stock-items');
+  return pickPreviewItems(data.stockItems);
+}
+
 function Home() {
+  // Polled separately from the rounds, so a failed stock load shows its own
+  // error and "Try again" instead of taking the Active rounds section down too
+  const {
+    data: stockItems,
+    error: stockError,
+    retry: retryStock,
+  } = usePolling(loadStockItems);
   const {
     data: rounds,
     setData: setRounds,
@@ -99,7 +104,11 @@ function Home() {
           </div>
         )}
         <QuickActions />
-        <StockPreview items={STOCK_PREVIEW} />
+        <StockPreview
+          items={stockItems}
+          error={stockError}
+          onRetry={retryStock}
+        />
       </div>
     </AppShell>
   );

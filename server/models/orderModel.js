@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const STAFF_MEMBERS = require('../constants/staffMembers');
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -82,7 +83,7 @@ const orderSchema = new mongoose.Schema(
     // Set by the server from the logged-in account's name, not sent by the client
     staffMember: {
       type: String,
-      enum: ['Jui', 'Impact'],
+      enum: STAFF_MEMBERS,
       required: [true, 'Please say who added this order'],
     },
     // Name or LINE ID — required so whoever delivers knows whose order it is

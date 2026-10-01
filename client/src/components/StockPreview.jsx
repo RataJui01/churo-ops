@@ -1,9 +1,11 @@
 import { Link } from 'react-router';
-import LowStockBadge from './LowStockBadge.jsx';
 import SectionLabel from './SectionLabel.jsx';
+import StockLevel from './StockLevel.jsx';
 
-// items: [{ name, quantity, unit, lowStockThreshold }]
-function StockPreview({ items }) {
+// Home's "Stock levels" card. items: the stock items to show, already picked
+// and ordered by Home (null = still loading). Rows aren't links, as in the
+// design — "See all" opens the Stock page.
+function StockPreview({ items, error, onRetry }) {
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-baseline justify-between">
@@ -13,28 +15,37 @@ function StockPreview({ items }) {
         </Link>
       </div>
 
-      <div className="flex flex-col gap-2.5 rounded-md bg-surface-raised px-4 py-3.5 shadow-sm">
-        {items.map(({ name, quantity, unit, lowStockThreshold }) => {
-          const isLow = quantity < lowStockThreshold;
-          return (
+      {error ? (
+        <div className="flex flex-col items-start gap-2">
+          <p role="alert" className="text-body-small text-danger">
+            {error}
+          </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="min-h-11 rounded-md bg-surface-peach px-4 text-button-secondary text-ink"
+          >
+            Try again
+          </button>
+        </div>
+      ) : items === null ? (
+        <p className="text-body-small text-ink-muted">Loading stock…</p>
+      ) : items.length === 0 ? (
+        <p className="text-body-small text-ink-muted">No stock items yet.</p>
+      ) : (
+        <div className="flex flex-col gap-2.5 rounded-md bg-surface-raised px-4 py-3.5 shadow-sm">
+          {items.map((item) => (
             <div
-              key={name}
+              key={item._id}
               className="flex items-center justify-between gap-3 not-last:border-b not-last:border-divider not-last:pb-2.5"
             >
-              <div className="text-body">{name}</div>
-              {isLow ? (
-                <LowStockBadge>
-                  {quantity} {unit}
-                </LowStockBadge>
-              ) : (
-                <div className="text-body-small font-normal text-ink-muted">
-                  {quantity} {unit}
-                </div>
-              )}
+              <div className="min-w-0 text-body">{item.name}</div>
+              {/* Same Out/Low rule and look as the Stock page */}
+              <StockLevel item={item} />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
