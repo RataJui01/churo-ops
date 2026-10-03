@@ -110,10 +110,15 @@ function Stock() {
                       className={`flex flex-col gap-0.5 ${dividerClass}`}
                     >
                       <span className="text-body">
-                        {/* Can't be null yet — items can't be deleted until
-                            the Edit stock item page exists; what to show then
-                            is an open question in todo.TODO */}
+                        {/* Deleting an item only hides it (Jui, 2026-10-03),
+                            so its entries keep the real name — the log is a
+                            record of what was bought. ?? is just a guard. */}
                         {restock.stockItem?.name ?? 'Deleted item'}{' '}
+                        {restock.stockItem?.isDeleted && (
+                          <span className="text-label text-ink-muted">
+                            (deleted){' '}
+                          </span>
+                        )}
                         <span className="text-status-done">
                           +{formatAmount(restock.quantity, restock.unit)}
                         </span>

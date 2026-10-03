@@ -55,7 +55,13 @@ function EditRestock() {
   // entry to that item (or to a new one), it never renames an item
   // (Jui, 2026-10-01). Derived each render, like the Restock form.
   const currentItem = restock?.stockItem ?? null;
-  const target = findItemByName(stockItems, name); // null = new or empty name
+  // The entry's own item is added to the search because it's missing from
+  // stockItems when it was deleted — otherwise its unchanged name would read
+  // as a move to a "new item"
+  const target = findItemByName(
+    currentItem ? [currentItem, ...stockItems] : stockItems,
+    name,
+  ); // null = new or empty name
   const isMove =
     name.trim() !== '' && (target === null || target._id !== currentItem?._id);
   // The entry always takes its item's unit; a new item starts in the entry's
