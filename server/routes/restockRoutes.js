@@ -8,5 +8,10 @@ router
   .route('/')
   .get(authController.protect, restockController.getRecentRestocks)
   .post(authController.protect, restockController.createRestock);
+router
+  .route('/:id')
+  .get(authController.protect, restockController.getRestock)
+  .patch(authController.protect, restockController.updateRestock)
+  .delete(authController.protect, restockController.deleteRestock);
 
 module.exports = router;

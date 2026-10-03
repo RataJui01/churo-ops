@@ -5,7 +5,9 @@ import { Link } from 'react-router';
 // AppShell because the two headers share nothing but the outer frame.
 // backTo is a fixed route rather than navigate(-1): opened directly (refresh,
 // shared link) there's no previous page in history, and -1 would leave the app.
-function SubPageShell({ title, backTo, children }) {
+// subtitle (optional): a small line under the title, e.g. Edit restock
+// entry's "Logged Today, 9:12 AM · Jui"
+function SubPageShell({ title, subtitle, backTo, children }) {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-surface">
       <header className="flex items-center gap-3 border-b border-border bg-surface-raised p-5">
@@ -29,7 +31,12 @@ function SubPageShell({ title, backTo, children }) {
             <path d="M12 19l-7-7 7-7" />
           </svg>
         </Link>
-        <h1 className="font-heading text-page-title">{title}</h1>
+        <div className="flex min-w-0 flex-col gap-px">
+          <h1 className="font-heading text-page-title">{title}</h1>
+          {subtitle && (
+            <p className="text-label text-ink-muted">{subtitle}</p>
+          )}
+        </div>
       </header>
 
       <main className="flex-1 p-5">{children}</main>
