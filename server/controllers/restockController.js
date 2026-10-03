@@ -3,6 +3,22 @@ const StockItem = require('../models/stockItemModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 
+// The item with this name (trimmed, any case), or a new one in `unit` with
+// threshold 0 and no auto-deduction (the schema defaults). Shared by Restock
+// and by Edit restock entry when an entry is moved to a name not seen before.
+async function findOrCreateItem(name, unit) {
+  const item = await StockItem.findByName(name);
+  if (item) return item;
+  try {
+    return await StockItem.create({ name, unit });
+  } catch (err) {
+    // E11000: the other phone created this same name a moment ago, and the
+    // unique index let only theirs through — use that item instead
+    if (err.code !== 11000) throw err;
+    return StockItem.findByName(name);
+  }
+}
+
 // The Stock page shows only the newest entries (decided 2026-09-30). Limiting
 // here, not in the browser, keeps each 7s poll from re-sending the whole history.
 const RECENT_LIMIT = 20;
@@ -43,19 +59,8 @@ exports.createRestock = catchAsync(async (req, res, next) => {
   });
   await restock.validate(['quantity', 'unit', 'staffMember']);
 
-  // Existing name (trimmed, any case) = top up; new name = start tracking it,
-  // with threshold 0 and no auto-deduction (the schema defaults)
-  let item = await StockItem.findByName(name);
-  if (!item) {
-    try {
-      item = await StockItem.create({ name, unit: restock.unit });
-    } catch (err) {
-      // E11000: the other phone created this same name a moment ago, and the
-      // unique index let only theirs through — use that item instead
-      if (err.code !== 11000) throw err;
-      item = await StockItem.findByName(name);
-    }
-  }
+  // Existing name (trimmed, any case) = top up; new name = start tracking it
+  const item = await findOrCreateItem(name, restock.unit);
 
   // The form locks the unit to the item's own, so this is just a backstop
   if (item.unit !== restock.unit) {
@@ -98,5 +103,118 @@ exports.createRestock = catchAsync(async (req, res, next) => {
       restock,
       stockItem,
     },
+  });
+});
+
+// One entry for the Edit restock entry page, with its item's current name
+exports.getRestock = catchAsync(async (req, res, next) => {
+  const restock = await RestockLog.findById(req.params.id).populate(
+    'stockItem',
+    'name unit',
+  );
+
+  if (!restock) {
+    return next(new AppError('No restock entry found with that ID', 404));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: { restock },
+  });
+});
+
+// Edit restock entry: { name?, quantity? }. The name says which item this
+// restock belongs to — changing it MOVES the entry to that item, it never
+// renames an item (Jui, 2026-10-01; renaming belongs on Edit stock item).
+// A name not seen before starts a new item, as on Restock. Moving to an item
+// counted in another unit is allowed: the entry takes that unit, and the
+// page warns that the quantity must be in it. staffMember and the logged
+// time stay as they were.
+//
+// Known limit: if both phones edit the same entry at the same moment, the
+// second one works from the old values. Optimistic concurrency would catch
+// that, but it isn't worth it for two people who rarely correct one entry.
+exports.updateRestock = catchAsync(async (req, res, next) => {
+  const restock = await RestockLog.findById(req.params.id);
+  if (!restock) {
+    return next(new AppError('No restock entry found with that ID', 404));
+  }
+
+  const { name } = req.body;
+  if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+    return next(new AppError('Please name this item', 400));
+  }
+
+  const oldItemId = restock.stockItem;
+  const oldQuantity = restock.quantity;
+
+  // Check the new quantity (> 0) before anything is written, so a bad one
+  // can't leave a brand-new item behind
+  if (req.body.quantity !== undefined) restock.quantity = req.body.quantity;
+  await restock.validate(['quantity']);
+
+  // Where the entry belongs now: the same item, another existing one, or a
+  // new one (in the entry's current unit)
+  const target =
+    name === undefined
+      ? await StockItem.findById(oldItemId)
+      : await findOrCreateItem(name, restock.unit);
+  if (!target) {
+    return next(new AppError("This entry's item was deleted", 400));
+  }
+  const isMove = !target._id.equals(oldItemId);
+
+  // Log first, as in createRestock: if the counts below never got updated,
+  // the entry still shows what it should have done
+  restock.stockItem = target._id;
+  restock.unit = target.unit;
+  await restock.save();
+
+  if (isMove) {
+    // Take it all back off the old item (if it still exists) and add the
+    // (possibly changed) amount to the new one
+    await StockItem.findByIdAndUpdate(oldItemId, {
+      $inc: { quantity: -oldQuantity },
+    });
+    await StockItem.findByIdAndUpdate(target._id, {
+      $inc: { quantity: restock.quantity },
+    });
+  } else if (restock.quantity !== oldQuantity) {
+    await StockItem.findByIdAndUpdate(target._id, {
+      $inc: { quantity: restock.quantity - oldQuantity },
+    });
+  }
+
+  const [updated, stockItem] = await Promise.all([
+    RestockLog.findById(restock._id).populate('stockItem', 'name unit'),
+    StockItem.findById(target._id),
+  ]);
+
+  res.status(200).json({
+    status: 'success',
+    data: { restock: updated, stockItem },
+  });
+});
+
+// Delete entry: takes its amount back off the item, then removes the entry.
+// The reverse order of createRestock, for the same reason: if the server died
+// in between, the entry is still there to explain the number. Deleting it
+// first could leave a count that's too high with nothing on record.
+exports.deleteRestock = catchAsync(async (req, res, next) => {
+  const restock = await RestockLog.findById(req.params.id);
+  if (!restock) {
+    return next(new AppError('No restock entry found with that ID', 404));
+  }
+
+  // The count may go below 0 (no min on purpose) — the Stock page shows Out
+  await StockItem.findByIdAndUpdate(restock.stockItem, {
+    $inc: { quantity: -restock.quantity },
+  });
+  await restock.deleteOne();
+
+  // 200 with a JSON body, not 204: the client's getJson parses every response
+  res.status(200).json({
+    status: 'success',
+    data: null,
   });
 });

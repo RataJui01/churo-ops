@@ -203,7 +203,13 @@ pre-made with flavor applied only at sale time.
   so a failure leaves a visible entry rather than an unlogged change). Client side: Restock
   form (`Restock.jsx`), Stock page (`Stock.jsx`, polled 7s), Home's `StockPreview` (max 5,
   Out → Low → rest); shared helpers in `client/src/constants/stock.js` and the
-  `StockLevel` / `StockBadge` components. The Stock page shows only the 20 newest
+  `StockLevel` / `StockBadge` components. Edit restock entry (`EditRestock.jsx`,
+  `GET/PATCH/DELETE /restocks/:id`, built 2026-10-03): editing the entry's Item name
+  **moves the entry** to that item (old item −amount, new item +amount; a new name creates
+  the item via the shared `findOrCreateItem`), it **never renames an item** — renaming
+  belongs on Edit stock item; moving to an item in another unit gives the entry that unit;
+  delete takes the amount back off the item before removing the entry; Delete needs two
+  taps. The Stock page shows only the 20 newest
   entries (server-side limit). Decided 2026-09-30: restock names match trimmed +
   case-insensitively (collation strength 2); an existing item's unit locks the Restock
   form's Unit select, and the server rejects a mismatched unit; new items start at
