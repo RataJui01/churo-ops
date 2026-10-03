@@ -50,8 +50,18 @@ const stockItemSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Amount used per order cannot be negative'],
   },
+  // Soft delete (Jui, 2026-10-03): the restock log is a permanent record of
+  // what was bought, so a deleted item stays in the database and its old log
+  // entries still show its name. It's hidden from every list; restocking the
+  // same name later brings it back (see restockController.findOrCreateItem).
+  isDeleted: {
+    type: Boolean,
+    default: false,
+  },
 });
 
+// Deleted items still count here on purpose: the name still belongs to the
+// old item, which is what lets a restock bring it back.
 // The database, not our code, keeps names unique: if both phones create
 // "Flour" and "flour" at the same moment, a find-then-create check in code
 // could miss both, but the index lets only the first insert through (E11000).
@@ -59,7 +69,8 @@ stockItemSchema.index({ name: 1 }, { unique: true, collation: NAME_COLLATION });
 
 // Lookups must use the same collation as the index to be case-insensitive —
 // wrapping it here means no caller can forget it. trim() matches how
-// `trim: true` stores the name.
+// `trim: true` stores the name. Finds deleted items too (to bring them back
+// and to explain a taken name).
 stockItemSchema.statics.findByName = function (name) {
   return this.findOne({ name: name.trim() }).collation(NAME_COLLATION);
 };
@@ -67,8 +78,13 @@ stockItemSchema.statics.findByName = function (name) {
 // MongoDB's default sort is binary, so every capitalized name would come
 // before every lowercase one ("Stick" before "cooking oil"). The same
 // collation gives a normal A–Z order, and can use the name index to do it.
+// Leaves deleted items out — this one filter hides them from the Stock page,
+// Home and the name suggestions at once ($ne: true so items saved before the
+// field existed still match, like Order's isCancelled).
 stockItemSchema.statics.findSortedByName = function () {
-  return this.find().sort('name').collation(NAME_COLLATION);
+  return this.find({ isDeleted: { $ne: true } })
+    .sort('name')
+    .collation(NAME_COLLATION);
 };
 
 const StockItem = mongoose.model('StockItem', stockItemSchema);

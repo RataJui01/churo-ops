@@ -193,6 +193,15 @@ pre-made with flavor applied only at sale time.
   Box are seeded (`server/scripts/seedStock.js`) with usedPerPiece 1/1/0 and usedPerOrder
   0/0/1; they have no special key and are ordinary, deletable items. Only two rule shapes
   exist (per churro piece, per order) — anything else (per flavor, per add-on) needs code.
+  **Deleting is a soft delete** (`isDeleted`, Jui 2026-10-03): the restock log is a
+  permanent record of what was bought, so a deleted item stays in Atlas — hidden from every
+  list by `findSortedByName`'s filter, while `findByName` still finds it and its log entries
+  keep its name (shown with "(deleted)"). Restocking its name brings the same item back
+  (`restockController.bringBack`: count reset to 0 in the new unit, atomic via
+  `isDeleted: true` in the filter). Edit stock item (`EditStockItem.jsx`,
+  `GET/PATCH/DELETE /stock-items/:id`) also sets "In stock now" (counted amount, not
+  logged) and the `usedPer*` rules (neither is in the design), and **sends only changed
+  fields** so a threshold edit can't overwrite a restock made on the other phone.
 - **`RestockLog`** (`server/models/restockLogModel.js`, built 2026-10-01) — one entry per
   restock: `stockItem` ref (name shown via populate), `quantity` (> 0), `unit` copied at the
   time, `staffMember` from `req.user.name`, timestamps. `POST /api/v1/restocks`

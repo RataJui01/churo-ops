@@ -8,6 +8,7 @@ const AppError = require('../utils/appError');
 // and by Edit restock entry when an entry is moved to a name not seen before.
 async function findOrCreateItem(name, unit) {
   const item = await StockItem.findByName(name);
+  if (item && item.isDeleted) return bringBack(item, unit);
   if (item) return item;
   try {
     return await StockItem.create({ name, unit });
@@ -19,17 +20,38 @@ async function findOrCreateItem(name, unit) {
   }
 }
 
+// Restocking a deleted item's name brings that item back (Jui, 2026-10-03),
+// so its old restocks and the new ones stay one history. Its count restarts
+// at 0 (the restock adds to it next) in the unit of this restock: with
+// nothing in stock no old number can be misread, and the Restock form can't
+// see deleted items to lock the unit anyway. Threshold and usedPer* are kept.
+// `isDeleted: true` in the filter makes it a one-time switch: if both phones
+// do this at once, the second finds nothing to bring back and so can't reset
+// the count the first one just added to.
+// Known gap: the Restock form can't see deleted items either, so typing one's
+// name says "New item — it will start being tracked." although it brings the
+// old one back. The result is right; only that text is off.
+async function bringBack(item, unit) {
+  const revived = await StockItem.findOneAndUpdate(
+    { _id: item._id, isDeleted: true },
+    { isDeleted: false, quantity: 0, unit },
+    { returnDocument: 'after' },
+  );
+  return revived ?? StockItem.findById(item._id);
+}
+
 // The Stock page shows only the newest entries (decided 2026-09-30). Limiting
 // here, not in the browser, keeps each 7s poll from re-sending the whole history.
 const RECENT_LIMIT = 20;
 
 exports.getRecentRestocks = catchAsync(async (req, res, next) => {
-  // populate swaps each stockItem id for { _id, name } — just the name, since
-  // the entry keeps its own copy of the unit. A deleted item comes back null.
+  // populate swaps each stockItem id for { _id, name, isDeleted } — not the
+  // unit, since the entry keeps its own copy. isDeleted lets the Stock page
+  // mark entries whose item was deleted (they keep its real name).
   const restocks = await RestockLog.find()
     .sort('-createdAt')
     .limit(RECENT_LIMIT)
-    .populate('stockItem', 'name');
+    .populate('stockItem', 'name isDeleted');
 
   res.status(200).json({
     status: 'success',
@@ -110,7 +132,7 @@ exports.createRestock = catchAsync(async (req, res, next) => {
 exports.getRestock = catchAsync(async (req, res, next) => {
   const restock = await RestockLog.findById(req.params.id).populate(
     'stockItem',
-    'name unit',
+    'name unit isDeleted',
   );
 
   if (!restock) {
@@ -155,10 +177,19 @@ exports.updateRestock = catchAsync(async (req, res, next) => {
 
   // Where the entry belongs now: the same item, another existing one, or a
   // new one (in the entry's current unit)
-  const target =
+  // A name that still points at this entry's own item is not a move — even
+  // when that item was deleted, so correcting an old entry's amount doesn't
+  // quietly bring a deleted item back. Any other name goes through
+  // findOrCreateItem (existing, deleted-and-revived, or new).
+  const sameItem =
     name === undefined
       ? await StockItem.findById(oldItemId)
-      : await findOrCreateItem(name, restock.unit);
+      : await StockItem.findByName(name);
+  let target = null;
+  if (sameItem && sameItem._id.equals(oldItemId)) target = sameItem;
+  else if (name !== undefined) {
+    target = await findOrCreateItem(name, restock.unit);
+  }
   if (!target) {
     return next(new AppError("This entry's item was deleted", 400));
   }
@@ -186,7 +217,10 @@ exports.updateRestock = catchAsync(async (req, res, next) => {
   }
 
   const [updated, stockItem] = await Promise.all([
-    RestockLog.findById(restock._id).populate('stockItem', 'name unit'),
+    RestockLog.findById(restock._id).populate(
+      'stockItem',
+      'name unit isDeleted',
+    ),
     StockItem.findById(target._id),
   ]);
 
