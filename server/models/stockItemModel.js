@@ -37,14 +37,32 @@ const stockItemSchema = new mongoose.Schema({
     min: [0, 'Low-stock alert cannot be negative'],
   },
   // Auto-deduction rules, kept as data instead of code so an item can start
-  // (or stop) being deducted by editing numbers. Each order takes
-  // usedPerPiece × its churro pieces + usedPerOrder. 0 and 0 = never deducted,
-  // for things too hard to count. min 0: a negative rule would add stock.
+  // (or stop) being deducted by editing numbers (utils/stockDeduction.js).
+  // Each order takes, from every item:
+  //   usedPerPiece   × its regular churro pieces (S 4 / M 8 per serving)
+  // + usedPerServing × its regular churro servings (quantity)
+  // + usedPerBite    × its Strawberry Nutella Bite servings (quantity)
+  // + usedPerOrder   once
+  // All 0 = never deducted, for things too hard to count. min 0: a negative
+  // rule would add stock. Seeded: Churro piece 1; Stick piece 1 + bite 1;
+  // Box serving 1; Bite churro bite 10; Bite box bite 1 (Jui, 2026-10-03).
   usedPerPiece: {
     type: Number,
     default: 0,
     min: [0, 'Amount used per churro piece cannot be negative'],
   },
+  usedPerServing: {
+    type: Number,
+    default: 0,
+    min: [0, 'Amount used per churro serving cannot be negative'],
+  },
+  usedPerBite: {
+    type: Number,
+    default: 0,
+    min: [0, 'Amount used per Nutella bite serving cannot be negative'],
+  },
+  // Kept for things used once per order whatever is in it (e.g. a bag) —
+  // nothing uses it yet
   usedPerOrder: {
     type: Number,
     default: 0,

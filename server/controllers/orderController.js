@@ -1,6 +1,12 @@
 const Order = require('../models/orderModel');
 const Round = require('../models/roundModel');
+const StockItem = require('../models/stockItemModel');
 const catchAsync = require('../utils/catchAsync');
+const {
+  planDeductions,
+  diffDeductions,
+  applyStockChanges,
+} = require('../utils/stockDeduction');
 const AppError = require('../utils/appError');
 
 exports.getAllOrders = catchAsync(async (req, res, next) => {
@@ -33,7 +39,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
   }
 
   // isDone/isDelivered are left out on purpose: a new order always starts pending
-  const newOrder = await Order.create({
+  const newOrder = new Order({
     round: round._id,
     items: req.body.items,
     deliveryFee: req.body.deliveryFee,
@@ -46,6 +52,19 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     customerName: req.body.customerName,
     note: req.body.note,
   });
+
+  // Stock is taken when the order is placed (Jui, 2026-10-03). Validate
+  // first so the amounts are worked out from checked, cast items. Deleted
+  // stock items are left out.
+  await newOrder.validate();
+  const stockItems = await StockItem.find({ isDeleted: { $ne: true } });
+  newOrder.stockDeductions = planDeductions(newOrder.items, stockItems);
+  newOrder.stockDeducted = true;
+
+  // Order first, then stock — the order is the record, as with restocks: if
+  // the server died in between, it still shows what should have been taken
+  await newOrder.save();
+  await applyStockChanges(newOrder.stockDeductions, -1);
 
   res.status(201).json({
     status: 'success',
@@ -101,10 +120,39 @@ exports.updateOrder = catchAsync(async (req, res, next) => {
     return next(new AppError('This order was cancelled', 400));
   }
 
+  // What this order took from stock before this edit
+  const oldDeductions = order.stockDeductions.map(({ stockItem, quantity }) => ({
+    stockItem,
+    quantity,
+  }));
+
   EDITABLE_FIELDS.forEach((field) => {
     if (req.body[field] !== undefined) order.set(field, req.body[field]);
   });
+
+  // Stock only moves for orders that took stock when placed (stockDeducted) —
+  // older orders never did, so there's nothing to give back or adjust.
+  // Status, delivery and note edits never touch stock.
+  let stockChanges = [];
+  let sign = -1;
+  if (order.stockDeducted && order.isCancelled) {
+    // Cancelling gives back exactly what was taken (Jui, 2026-10-03). Can't
+    // happen twice: an already-cancelled order is refused above.
+    stockChanges = oldDeductions;
+    sign = 1;
+  } else if (order.stockDeducted && order.isModified('items')) {
+    // Items edited: work out what the order takes now (current rules) and
+    // move stock by the difference only, e.g. S → M takes 4 more per serving
+    await order.validate();
+    const stockItems = await StockItem.find({ isDeleted: { $ne: true } });
+    const newDeductions = planDeductions(order.items, stockItems);
+    stockChanges = diffDeductions(oldDeductions, newDeductions);
+    order.stockDeductions = newDeductions;
+  }
+
+  // Order first, then stock, as in createOrder
   await order.save();
+  await applyStockChanges(stockChanges, sign);
 
   res.status(200).json({
     status: 'success',

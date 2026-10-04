@@ -40,6 +40,8 @@ const EDITABLE_FIELDS = [
   'quantity',
   'lowStockThreshold',
   'usedPerPiece',
+  'usedPerServing',
+  'usedPerBite',
   'usedPerOrder',
 ];
 

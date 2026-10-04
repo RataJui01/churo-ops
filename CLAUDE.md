@@ -183,16 +183,20 @@ pre-made with flavor applied only at sale time.
   fixed 3-type `Stock` from commit `af86b78`): `name` (user-defined, unique case-insensitively
   via a collation-strength-2 index; always look up with the `findByName` /
   `findSortedByName` statics so the collation can't be forgotten),
-  `unit` (`kg | L | pcs`), `quantity`, `lowStockThreshold`, plus `usedPerPiece` /
-  `usedPerOrder` (default `0`). `quantity` has no min on purpose (deduction may push it
-  below 0). Unit and staff enums are shared via `server/constants/units.js` /
-  `staffMembers.js`. Auto-deduction rules are **data on each item, not code**:
-  creating an order takes `usedPerPiece × churro pieces in the order + usedPerOrder` from
-  every item; `0`/`0` = never auto-deducted (for things too hard to count, e.g. dips). So a
-  new item can start auto-deducting by editing two numbers, no code change. Churro / Stick /
-  Box are seeded (`server/scripts/seedStock.js`) with usedPerPiece 1/1/0 and usedPerOrder
-  0/0/1; they have no special key and are ordinary, deletable items. Only two rule shapes
-  exist (per churro piece, per order) — anything else (per flavor, per add-on) needs code.
+  `unit` (`kg | L | pcs`), `quantity`, `lowStockThreshold`, plus four auto-deduction rules
+  (default `0`). `quantity` has no min on purpose (deduction may push it below 0). Unit and
+  staff enums are shared via `server/constants/units.js` / `staffMembers.js`.
+  Auto-deduction rules are **data on each item, not code** — and **per serving
+  (quantity), not per order** (Jui, 2026-10-03): placing an order takes from every
+  non-deleted item `usedPerPiece × regular churro pieces (S 4 / M 8 per serving)
+  + usedPerServing × regular servings + usedPerBite × Strawberry Nutella Bite servings
+  + usedPerOrder` (once per order — kept for things like bags, unused now); all 0 = never
+  auto-deducted (things too hard to count, e.g. dips). A Nutella bite serving is a box of 10
+  using its own churros and box. Seeded (`server/scripts/seedStock.js`): Churro piece 1;
+  Stick piece 1 + bite 1; Box serving 1; Bite churro bite 10; Bite box bite 1 — ordinary,
+  deletable items with no special key. Rules per flavor or per add-on would need code. The
+  maths lives in `server/utils/stockDeduction.js` (pure functions + one `bulkWrite` of
+  `$inc`s); see the Order bullet for how orders record and give back what they took.
   **Deleting is a soft delete** (`isDeleted`, Jui 2026-10-03): the restock log is a
   permanent record of what was bought, so a deleted item stays in Atlas — hidden from every
   list by `findSortedByName`'s filter, while `findByName` still finds it and its log entries
@@ -292,14 +296,13 @@ pre-made with flavor applied only at sale time.
 
 ## Not yet implemented (the actual next steps)
 
-- **Auto stock deduction on orders** — the hardest remaining piece. Churro pieces in an
-  order = `Σ (size === 'S' ? 4 : 8) × quantity` over its items; then every `StockItem`
-  loses `usedPerPiece × pieces + usedPerOrder` (so Churro and Stick lose one per piece, Box
-  one per order, with the seeded values). Still to decide: whether editing an order's items
-  or cancelling it gives the stock back. **Open question for Jui:** how many churro/stick pieces a
-  `strawberry_nutella_bite` uses — it has no size, so the `S ? 4 : 8` rule can't apply to it.
-  `isDone`/`isDelivered` should toggle via a separate
-  `PATCH /api/v1/orders/:id`, not by re-saving the whole order.
+- **Auto stock deduction is built** (2026-10-03): `createOrder` takes stock when the order is
+  placed; `updateOrder` gives it all back on cancel and moves it by the difference when
+  items change; status/note/delivery edits never touch stock. Each order stores
+  `stockDeductions` (what it took) so cancel/edit give back exactly that even if rules
+  change later, and `stockDeducted` marks orders placed after this feature — orders from
+  before it never took stock, so editing or cancelling them leaves stock alone. Order is
+  saved before the stock `$inc`s, like restocks (the record first).
 - Low-stock alerts + a daily/cumulative summary (MongoDB aggregation), and wiring the
   frontend's polling loop.
 - Auth is in place (JWT + bcrypt, `protect` on every order/round route): **one account per

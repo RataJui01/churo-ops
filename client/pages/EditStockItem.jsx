@@ -14,6 +14,15 @@ import {
   legendClass,
 } from '../src/components/formClasses.js';
 
+// The auto-deduction rules (server/models/stockItemModel.js), all per
+// serving except the last (Jui, 2026-10-03)
+const RULE_INPUTS = [
+  { field: 'usedPerPiece', label: 'Per churro piece' },
+  { field: 'usedPerServing', label: 'Per churro serving' },
+  { field: 'usedPerBite', label: 'Per Nutella bite serving' },
+  { field: 'usedPerOrder', label: 'Per order' },
+];
+
 // The end of the design's threshold help text, worked out from the form's
 // current numbers
 const LEVEL_TEXT = {
@@ -37,8 +46,8 @@ function EditStockItem() {
   // Number inputs are kept as strings and converted when used
   const [quantity, setQuantity] = useState('');
   const [threshold, setThreshold] = useState('');
-  const [perPiece, setPerPiece] = useState('');
-  const [perOrder, setPerOrder] = useState('');
+  // The four auto-deduction rules, keyed by field name (see RULE_INPUTS)
+  const [rules, setRules] = useState({});
 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,8 +71,11 @@ function EditStockItem() {
         setUnit(loaded.unit);
         setQuantity(String(loaded.quantity));
         setThreshold(String(loaded.lowStockThreshold));
-        setPerPiece(String(loaded.usedPerPiece));
-        setPerOrder(String(loaded.usedPerOrder));
+        setRules(
+          Object.fromEntries(
+            RULE_INPUTS.map(({ field }) => [field, String(loaded[field] ?? 0)]),
+          ),
+        );
       })
       .catch((err) => {
         if (!ignore) setLoadError(errorMessage(err));
@@ -94,8 +106,7 @@ function EditStockItem() {
     const numbers = {
       quantity,
       lowStockThreshold: threshold,
-      usedPerPiece: perPiece,
-      usedPerOrder: perOrder,
+      ...rules,
     };
     Object.entries(numbers).forEach(([field, value]) => {
       if (Number(value) !== item[field]) changes[field] = Number(value);
@@ -270,51 +281,38 @@ function EditStockItem() {
         </div>
 
         {/* Not in the design: the auto-deduction rules, kept as data on each
-            item (decided 2026-09-30) */}
+            item (decided 2026-09-30, per serving since 2026-10-03). A 2×2
+            grid keeps each input wide enough on a phone. */}
         <fieldset className="min-w-0">
           <legend className={legendClass}>Auto-deduct on each order</legend>
-          <div className="flex gap-2.5">
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <label htmlFor="item-per-piece" className="text-label text-ink-muted">
-                Per churro piece
-              </label>
-              <input
-                id="item-per-piece"
-                type="number"
-                inputMode="decimal"
-                step="any"
-                min="0"
-                required
-                value={perPiece}
-                onChange={(e) => setPerPiece(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <label htmlFor="item-per-order" className="text-label text-ink-muted">
-                Per order
-              </label>
-              <input
-                id="item-per-order"
-                type="number"
-                inputMode="decimal"
-                step="any"
-                min="0"
-                required
-                value={perOrder}
-                onChange={(e) => setPerOrder(e.target.value)}
-                className={inputClass}
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {RULE_INPUTS.map(({ field, label }) => (
+              <div key={field} className="flex min-w-0 flex-col gap-1.5">
+                <label
+                  htmlFor={`item-${field}`}
+                  className="text-label text-ink-muted"
+                >
+                  {label}
+                </label>
+                <input
+                  id={`item-${field}`}
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  min="0"
+                  required
+                  value={rules[field]}
+                  onChange={(e) =>
+                    setRules({ ...rules, [field]: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+            ))}
           </div>
           <p className="mt-1.5 text-label text-ink-muted">
-            Each order takes per churro piece × its churro pieces, plus per
-            order. Leave both at 0 for things that are hard to count.
-          </p>
-          {/* Remove once orders deduct stock (todo.TODO) — without it the
-              numbers seem to do nothing */}
-          <p className="text-label text-status-pending">
-            Orders don't deduct stock yet.
+            Each serving takes these from stock. A churro serving is S 4 / M 8
+            pieces. Leave all at 0 for things that are hard to count.
           </p>
         </fieldset>
 
