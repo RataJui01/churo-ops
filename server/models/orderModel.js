@@ -111,6 +111,24 @@ const orderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // What this order took from stock (utils/stockDeduction.js), so cancelling
+    // or editing it gives back exactly that — even if an item's rules have
+    // been changed since
+    stockDeductions: [
+      {
+        _id: false,
+        stockItem: { type: mongoose.Schema.ObjectId, ref: 'StockItem' },
+        quantity: Number,
+      },
+    ],
+    // true once stock was taken for this order. Orders saved before automatic
+    // deduction existed are false, so editing or cancelling them leaves stock
+    // alone (they never took any). An empty stockDeductions can't tell the two
+    // apart: Mongoose fills in [] for a missing array.
+    stockDeducted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );
