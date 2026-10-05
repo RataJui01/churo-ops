@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { getJson } from '../src/api.js';
+import { errorMessage, getJson } from '../src/api.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
 import { inputClass, labelClass } from '../src/components/formClasses.js';
 
@@ -30,12 +30,7 @@ function NewRound() {
       });
       navigate('/', { replace: true });
     } catch (err) {
-      // fetch only rejects (TypeError) on network failure
-      setError(
-        err instanceof TypeError
-          ? 'Cannot reach the server. Check your connection.'
-          : err.message,
-      );
+      setError(errorMessage(err));
     } finally {
       setIsLoading(false);
     }

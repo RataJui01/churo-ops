@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { errorMessage } from '../api.js';
 
 // Two operators take orders on separate phones with a shared backend, kept in
 // sync by polling rather than websockets (see CLAUDE.md) — 7s sits in the
@@ -33,14 +34,7 @@ export function usePolling(load) {
         if (cancelled) return;
         // Only the initial load shows a full error state; a poll that fails
         // later just keeps the last known data on screen until the next tick.
-        if (!hasLoadedOnce) {
-          // fetch only rejects (TypeError) on network failure
-          setError(
-            err instanceof TypeError
-              ? 'Cannot reach the server. Check your connection.'
-              : err.message,
-          );
-        }
+        if (!hasLoadedOnce) setError(errorMessage(err));
       }
     }
 
