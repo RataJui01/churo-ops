@@ -20,11 +20,12 @@ function Restock() {
   const [stockItems, setStockItems] = useState(null);
   const [loadError, setLoadError] = useState(false);
 
-  // Loaded once for the name suggestions and the unit lock, not polled
+  // Loaded once for the name suggestions and the unit lock, not polled.
+  // Deleted items come too, only so their names can be recognised below.
   useEffect(() => {
     let ignore = false;
 
-    getJson('/api/v1/stock-items')
+    getJson('/api/v1/stock-items?includeDeleted=true')
       .then(({ data }) => {
         if (!ignore) setStockItems(data.stockItems);
       })
@@ -41,15 +42,27 @@ function Restock() {
   // Derived on every render: typing an existing name locks the unit to that
   // item's own (decision 1b); typing on to a new name gives back whatever unit
   // was picked by hand
-  const match = stockItems ? findItemByName(stockItems, name) : null;
+  const activeItems = stockItems?.filter((item) => !item.isDeleted) ?? [];
+  const match = findItemByName(activeItems, name);
+  // A deleted item's name: the server brings that same item back
+  // (restockController.bringBack) instead of starting a new one
+  const deletedMatch = match
+    ? null
+    : findItemByName(stockItems?.filter((item) => item.isDeleted) ?? [], name);
+  // A deleted item comes back in whatever unit is picked here (its count
+  // restarts at 0, so no old number can be misread), so the select stays open
   const shownUnit = match ? match.unit : unit;
 
-  // Says which of the two things will happen, so a small typo doesn't
+  // Says which of the three things will happen, so a small typo doesn't
   // silently start a second item (Jui, 2026-10-01)
   let helpText =
     'Type an existing item to top it up, or a new name to start tracking it.';
   if (match) {
     helpText = `Topping up ${match.name} — ${formatAmount(match.quantity, match.unit)} in stock now.`;
+  } else if (deletedMatch) {
+    // Its threshold and auto-deduct rules are kept, so say so — a "new"
+    // Box would otherwise start being taken by orders without warning
+    helpText = `${deletedMatch.name} was deleted earlier — this brings it back, starting from 0. Its low-stock alert and auto-deduct settings come back too.`;
   } else if (name.trim() && stockItems) {
     helpText = 'New item — it will start being tracked.';
   }
@@ -96,7 +109,7 @@ function Restock() {
             className={inputClass}
           />
           <datalist id="stock-item-names">
-            {stockItems?.map((item) => (
+            {activeItems.map((item) => (
               <option key={item._id} value={item.name} />
             ))}
           </datalist>

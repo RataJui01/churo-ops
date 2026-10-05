@@ -17,6 +17,9 @@ function EditRestock() {
   // suggestions and to tell an existing item from a new one while typing
   const [restock, setRestock] = useState(null);
   const [stockItems, setStockItems] = useState([]);
+  // Deleted items, only to recognise their names: moving an entry onto one
+  // brings that item back (findOrCreateItem → bringBack on the server)
+  const [deletedItems, setDeletedItems] = useState([]);
   const [loadError, setLoadError] = useState('');
 
   const [name, setName] = useState('');
@@ -32,13 +35,15 @@ function EditRestock() {
 
     Promise.all([
       getJson(`/api/v1/restocks/${id}`),
-      getJson('/api/v1/stock-items'),
+      // Deleted items too, to tell a move onto one apart from a new item
+      getJson('/api/v1/stock-items?includeDeleted=true'),
     ])
       .then(([entry, items]) => {
         if (ignore) return;
         const loaded = entry.data.restock;
         setRestock(loaded);
-        setStockItems(items.data.stockItems);
+        setStockItems(items.data.stockItems.filter((item) => !item.isDeleted));
+        setDeletedItems(items.data.stockItems.filter((item) => item.isDeleted));
         setName(loaded.stockItem?.name ?? '');
         setQuantity(String(loaded.quantity));
       })
@@ -61,7 +66,10 @@ function EditRestock() {
   const target = findItemByName(
     currentItem ? [currentItem, ...stockItems] : stockItems,
     name,
-  ); // null = new or empty name
+  ); // null = new, deleted or empty name
+  // Coming back in the entry's own unit, counting from 0 — so like a new
+  // item it needs no unit warning
+  const revived = target ? null : findItemByName(deletedItems, name);
   const isMove =
     name.trim() !== '' && (target === null || target._id !== currentItem?._id);
   // The entry always takes its item's unit; a new item starts in the entry's
@@ -163,7 +171,9 @@ function EditRestock() {
             {isMove &&
               (target
                 ? `Moves this restock from ${currentItem.name} to ${target.name}.`
-                : `Moves this restock from ${currentItem.name} to a new item, ${name.trim()}.`)}
+                : revived
+                  ? `Moves this restock from ${currentItem.name} to ${revived.name}, which was deleted earlier — it comes back, starting from 0.`
+                  : `Moves this restock from ${currentItem.name} to a new item, ${name.trim()}.`)}
           </p>
           {unitChanges && (
             <p className="text-label text-status-pending">
