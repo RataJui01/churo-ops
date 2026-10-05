@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router';
+import EditExpense from '../pages/EditExpense.jsx';
 import EditOrder from '../pages/EditOrder.jsx';
 import EditRestock from '../pages/EditRestock.jsx';
 import EditStockItem from '../pages/EditStockItem.jsx';
@@ -26,6 +27,7 @@ function App() {
           <Route path="/orders/:id" element={<EditOrder />} />
           <Route path="/restock" element={<Restock />} />
           <Route path="/expenses/new" element={<NewExpense />} />
+          <Route path="/expenses/:id" element={<EditExpense />} />
           <Route path="/stock" element={<Stock />} />
           <Route path="/stock/:id" element={<EditStockItem />} />
           <Route path="/restocks/:id" element={<EditRestock />} />
