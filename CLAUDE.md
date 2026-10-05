@@ -238,6 +238,28 @@ pre-made with flavor applied only at sale time.
   `RestockLog` entry even when the same real purchase triggers both (two separate writes from
   two separate forms). Intentional: some expenses (gas, rent, delivery costs) aren't tied to
   any of the 3 stock types, so `Expense` has to stand alone rather than being keyed to `type`.
+  Model rebuilt 2026-10-05 (`server/models/expenseModel.js`, not the old `ExpenseModel.js`
+  from `af86b78`, whose `default: Date.now()` gave every expense the server's start time):
+  `title` (required, trimmed — the design's "Expense title"), `amount` (> 0 validator,
+  decimals allowed), `staffMember` (set from `req.user.name`, shared enum), `timestamps:
+  true` — `createdAt` is the expense's date, since the design has no date field.
+  `/api/v1/expenses` (`expenseController`, all behind `protect`): `GET /` = the 20 newest,
+  `POST /` (only `title` / `amount` from the body, `staffMember` from the token), `GET /
+  PATCH / DELETE /:id` (PATCH whitelists `title` / `amount` and uses `findById` + `set` +
+  `save()`; DELETE is a real delete, 200 with `data: null`). `GET /api/v1/finances/summary`
+  (`financeController.getSummary`, the project's first aggregation) returns all-time
+  `{ revenue, expenses, profit }`: revenue = `$sum` of `totalPrice` over orders matching
+  `{ isCancelled: { $ne: true } }` (same filter as `getAllOrders`), expenses = `$sum` of
+  `amount`; an empty collection aggregates to `[]`, read as 0. Add expense
+  (`NewExpense.jsx`, `/expenses/new`, built 2026-10-05) back → `/finances`, checks a blank
+  title / amount ≤ 0 itself before POSTing, then goes to `/finances` with `replace`.
+  Finances (`Finances.jsx`, built 2026-10-05, polled 7s): subtitle "Finances · All time"
+  (the design says "This month" — Jui chose all-time for all three cards so Profit is
+  real), three `StatCard`s (Profit green, **red when negative**, written "-฿3,868"), Add
+  expense button, "Recent expenses" = the 20 newest. Edit expense (`EditExpense.jsx`,
+  `/expenses/:id`, built 2026-10-05): loaded once, subtitle "Logged … · Jui", Save sends
+  only the changed fields (like EditStockItem), Delete entry is a real delete that needs
+  two taps; both go to `/finances` with `replace`.
 - **`Round`** (`server/models/roundModel.js`; `name`, `openDate`, `deliveryDate` ≥
   `openDate`, `isActive` default `true`) — a batch of orders; orders reference it by `_id`,
   and names are deliberately **not** unique (names like "Friday batch" repeat; dates tell
@@ -303,8 +325,9 @@ pre-made with flavor applied only at sale time.
   change later, and `stockDeducted` marks orders placed after this feature — orders from
   before it never took stock, so editing or cancelling them leaves stock alone. Order is
   saved before the stock `$inc`s, like restocks (the record first).
-- Low-stock alerts + a daily/cumulative summary (MongoDB aggregation), and wiring the
-  frontend's polling loop.
+- Low-stock alerts + a daily summary (MongoDB aggregation). The all-time summary is built
+  (`GET /finances/summary`, 2026-10-05) and polling is wired (`usePolling`, 7s); a per-day
+  breakdown isn't.
 - Auth is in place (JWT + bcrypt, `protect` on every order/round route): **one account per
   person** (`name` = `Jui` / `Impact`, created with `server/scripts/seedAccount.js`), both
   with the same permissions — no roles. Centralized error handling still needs a review
