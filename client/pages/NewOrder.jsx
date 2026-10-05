@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { getJson } from '../src/api.js';
+import { errorMessage, getJson } from '../src/api.js';
 import { getLinePrice } from '../src/constants/prices.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
 import ItemBuilder from '../src/components/ItemBuilder.jsx';
@@ -61,13 +61,7 @@ function NewOrder() {
         }
       })
       .catch((err) => {
-        if (ignore) return;
-        // fetch only rejects (TypeError) on network failure
-        setRoundsError(
-          err instanceof TypeError
-            ? 'Cannot reach the server. Check your connection.'
-            : err.message,
-        );
+        if (!ignore) setRoundsError(errorMessage(err));
       });
 
     // Stops a late response from setting state after leaving the page
@@ -113,13 +107,9 @@ function NewOrder() {
       // openRoundId makes Orders start with this order's round expanded.
       navigate('/orders', { replace: true, state: { openRoundId: round } });
     } catch (err) {
-      // fetch only rejects (TypeError) on network failure; anything else is
-      // the server's message, e.g. "This round has already ended"
-      setError(
-        err instanceof TypeError
-          ? 'Cannot reach the server. Check your connection.'
-          : err.message,
-      );
+      // A network failure, or the server's message, e.g. "This round has
+      // already ended"
+      setError(errorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

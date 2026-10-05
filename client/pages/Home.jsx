@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getJson } from '../src/api.js';
+import { errorMessage, getJson } from '../src/api.js';
 import { usePolling } from '../src/hooks/usePolling.js';
 import ActiveRounds from '../src/components/ActiveRounds.jsx';
 import AppShell from '../src/components/AppShell.jsx';
@@ -67,11 +67,7 @@ function Home() {
     } catch (err) {
       // The row is left as-is (still swiped open) so the operator can just
       // tap "End round" again — no separate retry button needed here.
-      setEndRoundError(
-        err instanceof TypeError
-          ? 'Cannot reach the server. Check your connection.'
-          : err.message,
-      );
+      setEndRoundError(errorMessage(err));
     }
   }
 

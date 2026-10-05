@@ -47,7 +47,8 @@ exports.closeRound = catchAsync(async (req, res, next) => {
   const round = await Round.findByIdAndUpdate(
     req.params.id,
     { isActive: false },
-    { new: true },
+    // Return the round after the update (Mongoose 9 replaced { new: true })
+    { returnDocument: 'after' },
   );
 
   if (!round) {
