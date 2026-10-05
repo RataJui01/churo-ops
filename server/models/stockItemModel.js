@@ -98,9 +98,11 @@ stockItemSchema.statics.findByName = function (name) {
 // collation gives a normal A–Z order, and can use the name index to do it.
 // Leaves deleted items out — this one filter hides them from the Stock page,
 // Home and the name suggestions at once ($ne: true so items saved before the
-// field existed still match, like Order's isCancelled).
-stockItemSchema.statics.findSortedByName = function () {
-  return this.find({ isDeleted: { $ne: true } })
+// field existed still match, like Order's isCancelled). includeDeleted is for
+// Restock / Edit restock entry, which must know a typed name belongs to a
+// deleted item: restocking it brings that item back rather than starting one.
+stockItemSchema.statics.findSortedByName = function (includeDeleted = false) {
+  return this.find(includeDeleted ? {} : { isDeleted: { $ne: true } })
     .sort('name')
     .collation(NAME_COLLATION);
 };

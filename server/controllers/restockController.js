@@ -23,14 +23,14 @@ async function findOrCreateItem(name, unit) {
 // Restocking a deleted item's name brings that item back (Jui, 2026-10-03),
 // so its old restocks and the new ones stay one history. Its count restarts
 // at 0 (the restock adds to it next) in the unit of this restock: with
-// nothing in stock no old number can be misread, and the Restock form can't
-// see deleted items to lock the unit anyway. Threshold and usedPer* are kept.
+// nothing in stock no old number can be misread, so the Restock form leaves
+// the unit open. Threshold and usedPer* are kept.
 // `isDeleted: true` in the filter makes it a one-time switch: if both phones
 // do this at once, the second finds nothing to bring back and so can't reset
 // the count the first one just added to.
-// Known gap: the Restock form can't see deleted items either, so typing one's
-// name says "New item — it will start being tracked." although it brings the
-// old one back. The result is right; only that text is off.
+// Restock and Edit restock entry load deleted items too
+// (GET /stock-items?includeDeleted=true), so typing one's name says it comes
+// back — with its settings — instead of "New item" (fixed 2026-10-05).
 async function bringBack(item, unit) {
   const revived = await StockItem.findOneAndUpdate(
     { _id: item._id, isDeleted: true },

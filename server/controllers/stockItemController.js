@@ -2,10 +2,13 @@ const StockItem = require('../models/stockItemModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 
-// Every stock item that isn't deleted, A–Z — for the Stock page, Home and the
-// Restock form's list of existing names
+// Every stock item that isn't deleted, A–Z — for the Stock page and Home.
+// ?includeDeleted=true adds the deleted ones (each has isDeleted: true), for
+// the Restock forms' "brings it back" message.
 exports.getAllStockItems = catchAsync(async (req, res, next) => {
-  const stockItems = await StockItem.findSortedByName();
+  const stockItems = await StockItem.findSortedByName(
+    req.query.includeDeleted === 'true',
+  );
 
   res.status(200).json({
     status: 'success',

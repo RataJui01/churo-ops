@@ -202,7 +202,10 @@ pre-made with flavor applied only at sale time.
   list by `findSortedByName`'s filter, while `findByName` still finds it and its log entries
   keep its name (shown with "(deleted)"). Restocking its name brings the same item back
   (`restockController.bringBack`: count reset to 0 in the new unit, atomic via
-  `isDeleted: true` in the filter). Edit stock item (`EditStockItem.jsx`,
+  `isDeleted: true` in the filter). Restock and Edit restock entry fetch
+  `GET /stock-items?includeDeleted=true` (only they do; `findSortedByName(true)`) so
+  typing a deleted item's name says it comes back — with its threshold and auto-deduct
+  rules — rather than "New item"; deleted names stay out of the suggestions. Edit stock item (`EditStockItem.jsx`,
   `GET/PATCH/DELETE /stock-items/:id`) also sets "In stock now" (counted amount, not
   logged) and the `usedPer*` rules (neither is in the design), and **sends only changed
   fields** so a threshold edit can't overwrite a restock made on the other phone.
