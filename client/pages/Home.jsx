@@ -76,7 +76,7 @@ function Home() {
   }
 
   return (
-    <AppShell subtitle={formatToday()}>
+    <AppShell subtitle={formatToday()} showLogout>
       <div className="flex flex-col gap-6">
         {error ? (
           <div className="flex flex-col items-start gap-2">

@@ -308,7 +308,11 @@ pre-made with flavor applied only at sale time.
 - Auth is in place (JWT + bcrypt, `protect` on every order/round route): **one account per
   person** (`name` = `Jui` / `Impact`, created with `server/scripts/seedAccount.js`), both
   with the same permissions — no roles. Centralized error handling still needs a review
-  before any real internet-facing deploy.
+  before any real internet-facing deploy. **Log out** (built 2026-10-05) is a button in
+  Home's header only (`AppShell`'s `showLogout` prop, as in the design; no confirmation).
+  It is client-side only — `logout()` in `client/src/api.js` removes the token and does a
+  full `location.replace('/login')`; there's no server endpoint, so the JWT itself stays
+  valid until `JWT_EXPIRES_IN`. `apiFetch`'s 401 branch calls the same `logout()`.
 
 ## Formatting
 

@@ -1,5 +1,13 @@
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
+// Ends the session on this device: the JWT is stateless, so dropping it is
+// the logout. A full page load (not navigate) throws away polling and any
+// in-memory data; replace, so Back can't return to a protected page.
+export function logout() {
+  localStorage.removeItem('token');
+  window.location.replace('/login');
+}
+
 // fetch wrapper for endpoints that require login. Not for /login itself:
 // that endpoint also answers 401 on a wrong password, which would redirect
 // the login page to itself.
@@ -15,11 +23,9 @@ export async function apiFetch(path, options = {}) {
     },
   });
 
-  // 401 = missing, invalid, or expired token: drop it and start over at login.
-  // A full page load (not navigate) also clears any stale in-memory state.
+  // 401 = missing, invalid, or expired token: same as logging out
   if (res.status === 401) {
-    localStorage.removeItem('token');
-    window.location.assign('/login');
+    logout();
     throw new Error('Session expired');
   }
 
