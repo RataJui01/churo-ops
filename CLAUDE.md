@@ -23,24 +23,22 @@ layout/flow calls should be explained, not just delivered.
 - Sync is intentionally simple: polling every 5–10s, not WebSockets. Upgrading to Socket.io
   is an explicit stretch goal, not a requirement.
 - Churros are bought pre-made and only flavored via topping/dusting at sale time — there is
-  no ingredient-level recipe tracking. This is why finished-churro stock is a single unified
-  pool (`Stock`), not tracked per flavor.
+  no ingredient-level recipe tracking. This is why finished churros are a single stock item
+  ("Churro"), not tracked per flavor.
 
 ## Project state
 
-**Verify against the working tree, not just this file.** The last commit (`af86b78`) contains
-the 5 Mongoose models, controllers, and routes (CRUD for `Expense` and `RestockLog`, stub
-`GET` for the rest), but in the current working tree those files are **deleted** —
-`server/models/`, `server/controllers/`, `server/routes/`, `server/constants/` are empty
-directories, and every router import/mount in `server/app.js` is commented out. `server/scripts/`
-does not exist (it was gitignored). So right now the server is just `app.js` (cors, json,
-morgan) + `server.js` (Mongoose connect + listen). Recover old code with `git show
-HEAD:server/<path>` / `git restore` if needed, but ask before assuming the deletion was an
-accident — a rewrite (possibly with auth first, see `todo.TODO`) may be underway.
+**Verify against the working tree, not just this file.** As of 2026-10-05 every screen in
+the live design is built and merged to `main` (PRs #1–#10): Login / Log out, Home, Orders,
+New / Edit order, New round, Stock, Restock, Edit restock entry, Edit stock item, Finances,
+Add / Edit expense — plus auto stock deduction on orders. `todo.TODO` has no open items.
+The server was rebuilt from the live design rather than restored from the old commit
+`af86b78` (its 5 models / stub controllers are history only — don't `git restore` them).
 
-The client is still the Vite scaffold (`App.jsx` renders "Hello React"). A full design pass
-has been done and lives in `client/` as reference material (see below); none of it is built.
-Treat anything marked "not yet implemented" literally.
+What's left is optional; ask Jui before starting any of it: the known gaps listed under
+"Status and what's left" at the end of this file, updating the live design artifact to match
+the app (Jui's job), a deploy (needs the error-handling review first), a README, automated
+tests, and the stretch goals (TypeScript, Zustand, Socket.io).
 
 ## Structure
 
@@ -53,11 +51,18 @@ Two independent npm projects, no root package.json or workspace tooling tying th
 - `server/` — Express 5 + Mongoose 9 (MongoDB Atlas) backend. `server.js` loads
   `./config.env` (relative to cwd, so run from `server/`), builds the Atlas URI by
   substituting `DATABASE_PASSWORD` into `<db_password>` in `DATABASE`, then listens on `PORT`.
-  `app.js` only mounts morgan (when `NODE_ENV === 'development'`), cors, and `express.json()`.
+  `app.js` mounts morgan (when `NODE_ENV === 'development'`), cors, `express.json()`, the
+  routers under `/api/v1/` (`users`, `rounds`, `orders`, `stock-items`, `restocks`,
+  `expenses`, `finances`), a 404 catch-all and `errorController`. Layout: `models/`,
+  `controllers/`, `routes/`, `constants/` (shared `units` / `staffMembers` enums),
+  `utils/` (`catchAsync`, `AppError`, `stockDeduction`).
+- Client layout: page components live in `client/pages/` (not `src/`); shared code in
+  `client/src/` — `api.js` (`apiFetch` / `getJson` / `errorMessage` / `logout`),
+  `hooks/usePolling.js`, `components/`, `constants/`.
 
 `.claude/skills/` and `.agents/skills/` hold the same 3 UI skills (frontend-design,
 ui-ux-pro-max, web-design-guidelines); `skills-lock.json` pins them. `todo.TODO` is the
-personal task log (currently: implement authentication).
+personal task log — each task's decisions and test results are recorded in its line.
 
 Run commands from within each subdirectory.
 
@@ -75,8 +80,12 @@ No test runner is configured yet.
 ### server/
 - `npm start` — run via nodemon (`server.js`)
 
-No lint, build, or automated test runner is configured yet. Manual verification used to live in
-gitignored `server/scripts/` scripts (see below); that folder doesn't currently exist.
+No lint, build, or automated test runner is configured yet. `server/scripts/` is gitignored
+and holds the one-off seed scripts (`seedAccount.js`, `seedStock.js`; run with `node` from
+`server/`). Features have been verified with throwaway scripts that call the controllers
+directly against Atlas (test data named "ZZ …", removed afterwards, real counts snapshotted
+and restored when stock is touched) plus Playwright for the UI — Jui logs in for Playwright;
+never mint a JWT.
 
 ## Client architecture notes
 
@@ -109,9 +118,10 @@ gitignored `server/scripts/` scripts (see below); that folder doesn't currently 
   React + TypeScript, but TS isn't installed.
 - **Design decisions that supersede earlier planning** (from HANDOFF.md): order creation is
   **one scrollable form**, not the 3-step wizard; nav is a 4-item segmented control (Home /
-  Orders / Stock / Finances), not a hamburger menu; menu is 3 flavors (Original, Cinnamon
-  sugar, Chocolate dip) × 2 sizes (S/M); **Signature/`SignatureRatio` is intentionally not
-  built**; orders belong to an ad-hoc **Round** (name, open date, delivery date) chosen from
+  Orders / Stock / Finances), not a hamburger menu; the mockups' 3-flavor menu is out of
+  date — the real menu is the code's 5 flavors (see the Order bullet); the `SignatureRatio`
+  helper is intentionally not built (`signature` is just a flavor); orders belong to an
+  ad-hoc **Round** (name, open date, delivery date) chosen from
   a dropdown; the UI shows status as one exclusive Pending/Done/Delivered radio group even
   though the backend keeps `isDone`/`isDelivered` as two booleans; staff are "Jui" /
   "Impact" (the mockups still say "Partner"; the code's enum is the one in use, confirmed
@@ -158,26 +168,30 @@ gitignored `server/scripts/` scripts (see below); that folder doesn't currently 
 - `server/config.env` holds environment variables (Mongo Atlas connection string, port,
   etc.), loaded via `dotenv.config({ path: ... })`. It's covered by `.gitignore` (alongside
   bare `.env`).
-- `server/constants/stockTypes.js` exports the shared `['churro', 'stick', 'box']` enum. Only
-  `StockModel.js` imports it so far — `RestockLogModel.js` still has the enum duplicated
-  inline. If a new stock type is ever added, update both, and remember a new type also needs
-  a manually-seeded `Stock` doc (nothing auto-creates them) plus new stock-deduction logic
-  wherever that's implemented, since deduction rules aren't generic per type.
-- The `constants/stockTypes.js` note above, the (former) `RestockLogModel.js` unused
-  `Timestamp` import, and the old `server/scripts/` pattern (`testExpense.js`, `seedStock.js`, etc.: load
-  `../config.env`, connect to Atlas, run valid/invalid cases, log ✅/❌, disconnect; writes
-  real docs with no cleanup) describe the code at commit `af86b78` — check `git show
-  HEAD:server/...` before relying on them, since those files are absent from the working tree.
+- Every route except `POST /users/login` is behind `authController.protect`. Handlers are
+  wrapped in `catchAsync` and report expected failures with `AppError` (404 / 400).
+- Patterns used throughout: edits are `findById` + `set` + `save()` with a whitelist of
+  editable fields (full validation, only changed paths written); counts change with atomic
+  `$inc`, never read-modify-write, because two phones write at once; the record (order,
+  restock log) is saved before the `$inc` it causes; `staffMember` always comes from
+  `req.user.name`, never the body; soft deletes filter with `{ $ne: true }` so documents
+  saved before the flag existed still match; Mongoose 9 uses `returnDocument: 'after'`, not
+  `{ new: true }`.
+- `errorController` only converts Mongoose `ValidationError` / `CastError` to 400 in
+  production; in development they reach the client as 500 with the raw message, and with
+  `NODE_ENV` unset no response is sent. Left as is on purpose (Jui, 2026-10-05: dev-only,
+  the raw error helps debugging) — review before any real deploy. Add / Edit expense check
+  their own input first so their users never see it; the other forms show the server's
+  message as-is.
 
 ## Domain model
 
-The 5 original Mongoose schemas (`server/models/`; `Round` was added later as a 6th) were
-deliberately kept at 5, not more — a
-`FinishedStock`/`PackagingStock` split was merged into one generic `Stock` schema since
-churro/stick/box share the same shape, and a churro-only `ProductionLog` was generalized into
-`RestockLog` to give stick/box restocks an audit trail too. There's no ingredient-level stock
-tracking — that was in an earlier design, dropped once it came out that churros are bought
-pre-made with flavor applied only at sale time.
+Six Mongoose models in `server/models/`: `User`, `Round`, `Order`, `StockItem`,
+`RestockLog`, `Expense` (file names are camelCase, e.g. `stockItemModel.js`). History: an
+early `FinishedStock`/`PackagingStock` split became one `Stock` schema, which in turn became
+the user-defined `StockItem`; a churro-only `ProductionLog` became `RestockLog`. There's no
+ingredient-level stock tracking — that was in an earlier design, dropped once it came out
+that churros are bought pre-made with flavor applied only at sale time.
 
 - **`StockItem`** (`server/models/stockItemModel.js`, built 2026-10-01 — **replaces** the old
   fixed 3-type `Stock` from commit `af86b78`): `name` (user-defined, unique case-insensitively
@@ -233,10 +247,10 @@ pre-made with flavor applied only at sale time.
   "packs of 50" rule is dropped). Badge rule, shared by Stock and Home: `quantity ≤ 0` →
   red **Out** (not in the design — the design's "Low when quantity < threshold" never
   fires at threshold 0), else `quantity < lowStockThreshold` → peach **Low**.
-- **`SignatureRatio`** (`size`, `flavor`, `pieceCount`) — **not** used for stock deduction.
-  Since finished-churro stock is one unified pool, this exists purely to auto-fill the UI
-  when staff pick flavor `signature` on an order (e.g. size M → 3 docs telling staff how many
-  of each topping to apply). One document per (size, flavor) combo.
+- **`SignatureRatio`** — planned early as a helper telling staff how many of each topping a
+  `signature` order gets; **not built, on purpose** (the design dropped it). `signature` is
+  just one of the Order flavors; the leftover commented-out router line in `app.js` is
+  from that plan.
 - **`Expense`** — records purchases as a lump sum, deliberately *not* linked to any specific
   `RestockLog` entry even when the same real purchase triggers both (two separate writes from
   two separate forms). Intentional: some expenses (gas, rent, delivery costs) aren't tied to
@@ -266,15 +280,13 @@ pre-made with flavor applied only at sale time.
 - **`Round`** (`server/models/roundModel.js`; `name`, `openDate`, `deliveryDate` ≥
   `openDate`, `isActive` default `true`) — a batch of orders; orders reference it by `_id`,
   and names are deliberately **not** unique (names like "Friday batch" repeat; dates tell
-  them apart). Any number of rounds may be active at once, so the model must **not** carry
-  a unique index on `isActive`: the current file still has a partial unique index
-  (`{ isActive: 1 }`, `partialFilterExpression: { isActive: true }`) that enforces a single
-  active round — remove it from the schema **and** drop `isActive_1` from the Atlas
-  collection (Mongoose never drops indexes itself, so E11000 keeps firing otherwise).
-  `roundController.getActiveRound` uses `findOne({ isActive: true })` and must become a
-  list query (`find({ isActive: true })`, empty array = 200, not 404). `POST /` and
-  `PATCH /:id` in `roundRoutes.js` only have `protect`, no handlers yet; "end round" is
-  `PATCH` setting `isActive: false`.
+  them apart). Any number of rounds may be active at once, so there's **no** unique index
+  on `isActive` (the old single-active-round index was removed from the schema and
+  `isActive_1` dropped from Atlas — only `_id_` remains; Mongoose never drops indexes
+  itself, so keep it that way). Routes (all `protect`): `GET /rounds` (every round,
+  newest delivery first, for Orders), `GET /rounds/active` (`getActiveRounds`, a list —
+  empty array = 200), `POST /rounds` (`createRound`), `PATCH /rounds/:id` (`closeRound`,
+  "End round": sets `isActive: false`).
 - **`Order`** (`server/models/orderModel.js`, rebuilt from the live design, not the old
   commit) — `round` is a required `ObjectId` ref to `Round`. `items` is a non-empty array of
   `{ flavor, size, addOns, separateAddOns, quantity }` subdocuments (`_id: false`): `flavor` is
@@ -291,7 +303,7 @@ pre-made with flavor applied only at sale time.
   `getLinePrice(item)` — `(base + ฿10 × addOns.length) × quantity` — rather than
   recomputing a line total anywhere else. Labels
   for the flavor enum live in `client/src/constants/flavors.js` (`FLAVOR_LABELS`), shared by
-  `OrderRow` and the future EditOrder page — **the live `Orders.dc.html`/`NewOrder.dc.html`
+  `OrderRow`, `ItemBuilder` and `OrderItemList` — **the live `Orders.dc.html`/`NewOrder.dc.html`
   mockups still show the older 3-flavor menu (Original/Cinnamon sugar/Chocolate dip, no
   `signature`) and need a manual update from Jui**; the code's enum is the one actually in
   use, confirmed 2026-09-23.
@@ -319,8 +331,17 @@ pre-made with flavor applied only at sale time.
   `totalPrice` should conceptually be `itemsSubtotal + deliveryFee`, but nothing computes
   it automatically; it's just a required field set directly.
 
-## Not yet implemented (the actual next steps)
+## Status and what's left
 
+- **Known gaps** (recorded, not fixed — ask Jui before touching):
+  - Swipe-to-end-round has no real keyboard / screen-reader path and no confirmation step
+    (see Client architecture notes).
+  - A 7-digit amount ("-฿1,234,567") overflows its Finances card by ~8px at 390px; 6 digits
+    fit.
+  - The `errorController` dev-environment behaviour (see Server architecture notes).
+  - The live design artifact lags the app: old 3-flavor menu, "Partner" instead of
+    "Impact", Finances "This month", and app-only additions (Out badge, Clear selection,
+    In stock now, auto-deduct rules, red negative Profit). Updating it is Jui's job.
 - **Auto stock deduction is built** (2026-10-03): `createOrder` takes stock when the order is
   placed; `updateOrder` gives it all back on cancel and moves it by the difference when
   items change; status/note/delivery edits never touch stock. Each order stores
@@ -328,10 +349,12 @@ pre-made with flavor applied only at sale time.
   change later, and `stockDeducted` marks orders placed after this feature — orders from
   before it never took stock, so editing or cancelling them leaves stock alone. Order is
   saved before the stock `$inc`s, like restocks (the record first).
-- Low-stock alerts + a daily summary (MongoDB aggregation). The all-time summary is built
-  (`GET /finances/summary`, 2026-10-05) and polling is wired (`usePolling`, 7s); a per-day
-  breakdown isn't.
-- Auth is in place (JWT + bcrypt, `protect` on every order/round route): **one account per
+- **Not planned** (Jui, 2026-10-05): low-stock alerts and a daily summary. The Low / Out
+  badges on Stock and Home are the low-stock warning — both people open the app for every
+  order anyway, so nothing pushes a notification. Finances shows all-time totals
+  (`GET /finances/summary`) only; there's no per-day breakdown. Polling is wired
+  (`usePolling`, 7s). Don't build either unless Jui asks again.
+- Auth is in place (JWT + bcrypt, `protect` on every route except login): **one account per
   person** (`name` = `Jui` / `Impact`, created with `server/scripts/seedAccount.js`), both
   with the same permissions — no roles. Centralized error handling still needs a review
   before any real internet-facing deploy. **Log out** (built 2026-10-05) is a button in
