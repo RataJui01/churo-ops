@@ -1,6 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
 import { errorMessage, getJson } from '../src/api.js';
+import {
+  AFFECTED_BY,
+  FORM_LIST,
+  LOAD_ONCE,
+  refreshAfterSave,
+  restockQuery,
+  stockItemsWithDeletedQuery,
+} from '../src/queries.js';
 import {
   UNITS,
   findItemByName,
@@ -9,112 +18,24 @@ import {
 import SubPageShell from '../src/components/SubPageShell.jsx';
 import { inputClass, labelClass } from '../src/components/formClasses.js';
 
+// Loads the entry and every item, then hands both to the form (see
+// EditExpense for why it's split in two). The form waits for the item list
+// too: without it, any name typed would read as a move to a "new item".
 function EditRestock() {
   const { id } = useParams();
-  const navigate = useNavigate();
-
-  // The entry as loaded (null = still loading) and every item, for the name
-  // suggestions and to tell an existing item from a new one while typing
-  const [restock, setRestock] = useState(null);
-  const [stockItems, setStockItems] = useState([]);
-  // Deleted items, only to recognise their names: moving an entry onto one
-  // brings that item back (findOrCreateItem → bringBack on the server)
-  const [deletedItems, setDeletedItems] = useState([]);
-  const [loadError, setLoadError] = useState('');
-
-  const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  // "Delete entry" needs two taps, like Cancel order (Jui, 2026-10-01)
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-
   // Loaded once, not polled, so what's being edited can't change underfoot
-  useEffect(() => {
-    let ignore = false;
+  const entry = useQuery({ ...restockQuery(id), ...LOAD_ONCE });
+  // Deleted items too, to tell a move onto one apart from a new item
+  const items = useQuery({ ...stockItemsWithDeletedQuery, ...FORM_LIST });
 
-    Promise.all([
-      getJson(`/api/v1/restocks/${id}`),
-      // Deleted items too, to tell a move onto one apart from a new item
-      getJson('/api/v1/stock-items?includeDeleted=true'),
-    ])
-      .then(([entry, items]) => {
-        if (ignore) return;
-        const loaded = entry.data.restock;
-        setRestock(loaded);
-        setStockItems(items.data.stockItems.filter((item) => !item.isDeleted));
-        setDeletedItems(items.data.stockItems.filter((item) => item.isDeleted));
-        setName(loaded.stockItem?.name ?? '');
-        setQuantity(String(loaded.quantity));
-      })
-      .catch((err) => {
-        if (!ignore) setLoadError(errorMessage(err));
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [id]);
-
-  // The name says which item this restock belongs to: changing it MOVES the
-  // entry to that item (or to a new one), it never renames an item
-  // (Jui, 2026-10-01). Derived each render, like the Restock form.
-  const currentItem = restock?.stockItem ?? null;
-  // The entry's own item is added to the search because it's missing from
-  // stockItems when it was deleted — otherwise its unchanged name would read
-  // as a move to a "new item"
-  const target = findItemByName(
-    currentItem ? [currentItem, ...stockItems] : stockItems,
-    name,
-  ); // null = new, deleted or empty name
-  // Coming back in the entry's own unit, counting from 0 — so like a new
-  // item it needs no unit warning
-  const revived = target ? null : findItemByName(deletedItems, name);
-  const isMove =
-    name.trim() !== '' && (target === null || target._id !== currentItem?._id);
-  // The entry always takes its item's unit; a new item starts in the entry's
-  const shownUnit = target ? target.unit : (restock?.unit ?? '');
-  const unitChanges = isMove && shownUnit !== restock?.unit;
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
-    setIsSubmitting(true);
-    try {
-      await getJson(`/api/v1/restocks/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name, quantity: Number(quantity) }),
-      });
-      // replace: Back shouldn't return to an entry that was just saved
-      navigate('/stock', { replace: true });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!confirmingDelete) {
-      setConfirmingDelete(true);
-      return;
-    }
-    setError('');
-    setIsSubmitting(true);
-    try {
-      await getJson(`/api/v1/restocks/${id}`, { method: 'DELETE' });
-      navigate('/stock', { replace: true });
-    } catch (err) {
-      setError(errorMessage(err));
-      setConfirmingDelete(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  const restock = entry.data;
+  const loadError = entry.error ?? items.error;
 
   // Loading, failed, or an entry whose item no longer exists: no form
-  if (loadError || !restock || !restock.stockItem) {
-    const message = loadError || (restock && "This entry's item was deleted.");
+  if (!restock || !items.data || !restock.stockItem) {
+    const message = loadError
+      ? errorMessage(loadError)
+      : restock && items.data && "This entry's item was deleted.";
     return (
       <SubPageShell title="Edit restock entry" backTo="/stock">
         {message ? (
@@ -137,6 +58,85 @@ function EditRestock() {
         )}
       </SubPageShell>
     );
+  }
+
+  return <EditRestockForm restock={restock} allItems={items.data} />;
+}
+
+// restock: the entry as loaded. allItems: every item, deleted ones included,
+// for the name suggestions and to tell an existing item from a new one
+function EditRestockForm({ restock, allItems }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const url = `/api/v1/restocks/${restock._id}`;
+
+  const stockItems = allItems.filter((item) => !item.isDeleted);
+  // Deleted items, only to recognise their names: moving an entry onto one
+  // brings that item back (findOrCreateItem → bringBack on the server)
+  const deletedItems = allItems.filter((item) => item.isDeleted);
+
+  const [name, setName] = useState(restock.stockItem.name);
+  const [quantity, setQuantity] = useState(String(restock.quantity));
+  const [error, setError] = useState('');
+  // "Delete entry" needs two taps, like Cancel order (Jui, 2026-10-01)
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  // replace: Back shouldn't return to an entry that was just saved/deleted
+  const leave = () => navigate('/stock', { replace: true });
+
+  // Each waits for Stock's lists to be refetched, so they show the change
+  // on arrival
+  const save = useMutation({
+    mutationFn: async (body) => {
+      await getJson(url, { method: 'PATCH', body: JSON.stringify(body) });
+      await refreshAfterSave(queryClient, AFFECTED_BY.restock);
+    },
+    onSuccess: leave,
+    onError: (err) => setError(errorMessage(err)),
+  });
+  const remove = useMutation({
+    mutationFn: async () => {
+      await getJson(url, { method: 'DELETE' });
+      await refreshAfterSave(queryClient, AFFECTED_BY.restock);
+    },
+    onSuccess: leave,
+    onError: (err) => {
+      setError(errorMessage(err));
+      setConfirmingDelete(false);
+    },
+  });
+  const isSubmitting = save.isPending || remove.isPending;
+
+  // The name says which item this restock belongs to: changing it MOVES the
+  // entry to that item (or to a new one), it never renames an item
+  // (Jui, 2026-10-01). Derived each render, like the Restock form.
+  const currentItem = restock.stockItem;
+  // The entry's own item is added to the search because it's missing from
+  // stockItems when it was deleted — otherwise its unchanged name would read
+  // as a move to a "new item"
+  const target = findItemByName([currentItem, ...stockItems], name); // null = new, deleted or empty name
+  // Coming back in the entry's own unit, counting from 0 — so like a new
+  // item it needs no unit warning
+  const revived = target ? null : findItemByName(deletedItems, name);
+  const isMove =
+    name.trim() !== '' && (target === null || target._id !== currentItem._id);
+  // The entry always takes its item's unit; a new item starts in the entry's
+  const shownUnit = target ? target.unit : restock.unit;
+  const unitChanges = isMove && shownUnit !== restock.unit;
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    save.mutate({ name, quantity: Number(quantity) });
+  }
+
+  function handleDelete() {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    setError('');
+    remove.mutate();
   }
 
   return (

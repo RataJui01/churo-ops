@@ -1,18 +1,35 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { errorMessage, getJson } from '../src/api.js';
+import { AFFECTED_BY, refreshAfterSave } from '../src/queries.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
 import { inputClass, labelClass } from '../src/components/formClasses.js';
 
 function NewExpense() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   // Kept as a string and converted when sent, like Restock's quantity
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(e) {
+  // Waits for Finances to be refetched, so the expense is there on arrival
+  const addExpense = useMutation({
+    mutationFn: async (expense) => {
+      await getJson('/api/v1/expenses', {
+        method: 'POST',
+        body: JSON.stringify(expense),
+      });
+      await refreshAfterSave(queryClient, AFFECTED_BY.expense);
+    },
+    // replace: Back shouldn't return to a form that was already sent
+    onSuccess: () => navigate('/finances', { replace: true }),
+    onError: (err) => setError(errorMessage(err)),
+  });
+  const isSubmitting = addExpense.isPending;
+
+  function handleSubmit(e) {
     e.preventDefault();
 
     // The server checks these too, but in development its error reads
@@ -28,19 +45,7 @@ function NewExpense() {
     }
 
     setError('');
-    setIsSubmitting(true);
-    try {
-      await getJson('/api/v1/expenses', {
-        method: 'POST',
-        body: JSON.stringify({ title, amount: Number(amount) }),
-      });
-      // replace: Back shouldn't return to a form that was already sent
-      navigate('/finances', { replace: true });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
+    addExpense.mutate({ title, amount: Number(amount) });
   }
 
   // Back goes to Finances as in the design, even when opened from Home's

@@ -1,23 +1,17 @@
+import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router';
-import { getJson } from '../src/api.js';
-import { usePolling } from '../src/hooks/usePolling.js';
+import { errorMessage } from '../src/api.js';
+import { POLLED, roundsWithOrdersQuery } from '../src/queries.js';
 import AppShell from '../src/components/AppShell.jsx';
 import RoundOrderGroup from '../src/components/RoundOrderGroup.jsx';
 
-// Every round (active and ended, newest first) with its orders
-async function loadOrders() {
-  const { data } = await getJson('/api/v1/rounds');
-
-  return Promise.all(
-    data.rounds.map(async (round) => {
-      const { data } = await getJson(`/api/v1/orders?round=${round._id}`);
-      return { round, orders: data.orders };
-    }),
-  );
-}
-
 function Orders() {
-  const { data: groups, error, retry } = usePolling(loadOrders);
+  const query = useQuery({ ...roundsWithOrdersQuery, ...POLLED });
+  const groups = query.data ?? null;
+  // Only before the first load: a refresh that fails later keeps the last
+  // data on screen
+  const error = !groups && query.error ? errorMessage(query.error) : '';
+  const retry = () => query.refetch();
   // Set by NewOrder after placing an order, so that round starts open and the
   // new order is visible. Router state, not ?open=: it's about this one
   // navigation, not something to bookmark or share.

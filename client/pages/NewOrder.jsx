@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { errorMessage, getJson } from '../src/api.js';
+import {
+  AFFECTED_BY,
+  FORM_LIST,
+  activeRoundsQuery,
+  refreshAfterSave,
+} from '../src/queries.js';
 import { getLinePrice } from '../src/constants/prices.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
 import ItemBuilder from '../src/components/ItemBuilder.jsx';
@@ -21,59 +28,68 @@ function roundLabel(round) {
 
 function NewOrder() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   // The order's lines; ItemBuilder hands each finished one over through onAdd
   const [items, setItems] = useState([]);
   // True while ItemBuilder has a flavor picked that hasn't been added yet
   const [hasDraft, setHasDraft] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(0);
-  const [round, setRound] = useState('');
+  // The round picked by hand ('' = none yet)
+  const [chosenRound, setChosenRound] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [note, setNote] = useState('');
   // No "Added by" field: the server takes staffMember from the logged-in account
 
+  // Shown from the cache at once, refetched once on opening, but not polled
+  // or refetched on focus like Home/Orders: options shouldn't change under
+  // someone mid-form. If the other phone ends the chosen round meanwhile, the
+  // server rejects the order with "This round has already ended".
+  const roundsQuery = useQuery({ ...activeRoundsQuery, ...FORM_LIST });
   // null = still loading
-  const [activeRounds, setActiveRounds] = useState(null);
-  const [roundsError, setRoundsError] = useState('');
+  const activeRounds = roundsQuery.data ?? null;
+  const roundsError = roundsQuery.error ? errorMessage(roundsQuery.error) : '';
+  // Only one open round = nothing to choose, so it's picked; with several,
+  // the operator chooses rather than the app guessing. Worked out each
+  // render instead of set in an effect when the rounds arrive.
+  const round =
+    chosenRound || (activeRounds?.length === 1 ? activeRounds[0]._id : '');
+
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Derived on every render instead of kept in state: state would have to be
   // updated by hand every time items or the fee change, and could drift
   const subtotal = items.reduce((sum, item) => sum + getLinePrice(item), 0);
   const total = subtotal + deliveryFee;
 
-  // Loaded once, not polled like Home/Orders: options changing under you
-  // mid-form could land the order in the wrong round. If the other phone ends
-  // the chosen round meanwhile, the server rejects the order with "This round
-  // has already ended" instead.
-  useEffect(() => {
-    let ignore = false;
-
-    getJson('/api/v1/rounds/active')
-      .then(({ data }) => {
-        if (ignore) return;
-        setActiveRounds(data.activeRounds);
-        // Only one open round = nothing to choose, so pick it; with several,
-        // make the operator choose rather than guess
-        if (data.activeRounds.length === 1) {
-          setRound(data.activeRounds[0]._id);
-        }
-      })
-      .catch((err) => {
-        if (!ignore) setRoundsError(errorMessage(err));
+  // Waits for Orders (and stock, which the order deducts, and finances) to
+  // be refetched, so the new order is there on arrival
+  const placeOrder = useMutation({
+    mutationFn: async (order) => {
+      // No staffMember: the server sets it from the logged-in account
+      await getJson('/api/v1/orders', {
+        method: 'POST',
+        body: JSON.stringify(order),
       });
-
-    // Stops a late response from setting state after leaving the page
-    return () => {
-      ignore = true;
-    };
-  }, []);
+      await refreshAfterSave(queryClient, AFFECTED_BY.order);
+    },
+    // replace: Back shouldn't return to a form that's already been sent.
+    // openRoundId makes Orders start with this order's round expanded.
+    onSuccess: (_data, order) =>
+      navigate('/orders', {
+        replace: true,
+        state: { openRoundId: order.round },
+      }),
+    // A network failure, or the server's message, e.g. "This round has
+    // already ended"
+    onError: (err) => setError(errorMessage(err)),
+  });
+  const isSubmitting = placeOrder.isPending;
 
   // Only runs once the browser's own checks pass (the `required` round,
   // delivery time and customer fields); the item checks can't be expressed
   // as HTML attributes, so they live here.
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
@@ -88,31 +104,15 @@ function NewOrder() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // No staffMember: the server sets it from the logged-in account
-      await getJson('/api/v1/orders', {
-        method: 'POST',
-        body: JSON.stringify({
-          round,
-          items,
-          deliveryFee,
-          deliveryTime,
-          customerName,
-          note,
-          totalPrice: total,
-        }),
-      });
-      // replace: Back shouldn't return to a form that's already been sent.
-      // openRoundId makes Orders start with this order's round expanded.
-      navigate('/orders', { replace: true, state: { openRoundId: round } });
-    } catch (err) {
-      // A network failure, or the server's message, e.g. "This round has
-      // already ended"
-      setError(errorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
+    placeOrder.mutate({
+      round,
+      items,
+      deliveryFee,
+      deliveryTime,
+      customerName,
+      note,
+      totalPrice: total,
+    });
   }
 
   return (
@@ -158,7 +158,7 @@ function NewOrder() {
               required
               disabled={activeRounds === null}
               value={round}
-              onChange={(e) => setRound(e.target.value)}
+              onChange={(e) => setChosenRound(e.target.value)}
               className={inputClass}
             >
               {activeRounds === null ? (

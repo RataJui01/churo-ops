@@ -20,7 +20,8 @@ layout/flow calls should be explained, not just delivered.
 - Two operators take orders concurrently on separate phones — this is why there's a shared
   Node/Express/MongoDB backend rather than a purely client-side app; both devices need to
   see the same stock numbers and order list.
-- Sync is intentionally simple: polling every 5–10s, not WebSockets. Upgrading to Socket.io
+- Sync is intentionally simple: polling every 7s (React Query's `refetchInterval`), not
+  WebSockets. Upgrading to Socket.io
   is an explicit stretch goal, not a requirement.
 - Churros are bought pre-made and only flavored via topping/dusting at sale time — there is
   no ingredient-level recipe tracking. This is why finished churros are a single stock item
@@ -38,16 +39,18 @@ The server was rebuilt from the live design rather than restored from the old co
 What's left is optional; ask Jui before starting any of it: the known gaps listed under
 "Status and what's left" at the end of this file, updating the live design artifact to match
 the app (Jui's job), a deploy (needs the error-handling review first), a README, automated
-tests, and the stretch goals (TypeScript, Zustand, Socket.io).
+tests, and the stretch goals (TypeScript, Socket.io). React Query was added 2026-10-08
+(see Client architecture notes).
 
 ## Structure
 
 Two independent npm projects, no root package.json or workspace tooling tying them together:
 
-- `client/` — Vite + React 19 + Tailwind CSS v4 frontend. Currently plain JS/JSX with no
-  state library. TypeScript and Zustand (for shared stock/user state) are the intended
-  direction (per early planning) but neither is installed yet — don't assume `.tsx` files or
-  a Zustand store exist until they're actually added.
+- `client/` — Vite + React 19 + Tailwind CSS v4 frontend, plain JS/JSX. Server data goes
+  through **TanStack Query v5** (React Query) — nearly all the app's state is server data,
+  so there's no other state library; Zustand was dropped from the plan (Jui, 2026-10-08)
+  unless a real client-only need shows up. TypeScript is still only a stretch goal — don't
+  assume `.tsx` files exist.
 - `server/` — Express 5 + Mongoose 9 (MongoDB Atlas) backend. `server.js` loads
   `./config.env` (relative to cwd, so run from `server/`), builds the Atlas URI by
   substituting `DATABASE_PASSWORD` into `<db_password>` in `DATABASE`, then listens on `PORT`.
@@ -58,7 +61,8 @@ Two independent npm projects, no root package.json or workspace tooling tying th
   `utils/` (`catchAsync`, `AppError`, `stockDeduction`).
 - Client layout: page components live in `client/pages/` (not `src/`); shared code in
   `client/src/` — `api.js` (`apiFetch` / `getJson` / `errorMessage` / `logout`),
-  `hooks/usePolling.js`, `components/`, `constants/`.
+  `queries.js` (every React Query key, fetch function and preset), `components/`,
+  `constants/`.
 
 `.claude/skills/` and `.agents/skills/` hold the same 3 UI skills (frontend-design,
 ui-ux-pro-max, web-design-guidelines); `skills-lock.json` pins them. `todo.TODO` is the
@@ -89,6 +93,24 @@ never mint a JWT.
 
 ## Client architecture notes
 
+- **React Query** (added 2026-10-08, decisions in `todo.TODO` 10-8-26): one `QueryClient`
+  in `src/main.jsx` (`staleTime 0`, `gcTime 5 min`, `retry 1` — Atlas is slow enough that 3
+  retries would hide errors for ~10 s — `refetchOnWindowFocus` on; Devtools in dev only).
+  Every key, fetch function and preset lives in `src/queries.js` — add new ones there, never
+  inline. Lists use plural roots (`['stock-items']`, `['rounds', …]`), single documents
+  singular roots (`['stock-item', id]`), so refreshing a list can't refetch an edit page
+  that's deleting its document. Presets: `POLLED` (list pages, `refetchInterval` 7 s,
+  paused in the background), `FORM_LIST` (New order's rounds, Restock's names: cached but
+  not refetched on focus mid-form), `LOAD_ONCE` (edit pages: never refetched while open,
+  `gcTime 0` so a revisit loads fresh). Edit pages are split into a loader + `…Form`
+  component that seeds its fields with `useState(data.x)` — no effects copying data into
+  state. Every save is a `useMutation` that saves, then awaits `refreshAfterSave(queryClient,
+  AFFECTED_BY.<kind>)` (refetches the affected lists, inactive ones too) before navigating,
+  so the destination page shows the change on arrival. A full-page error shows only while a
+  query has no data yet. Result: tab switches show cached data in ~10–20 ms instead of
+  "Loading…" for 180–575 ms; request count and latency are unchanged (still one
+  `GET /orders` per round on Home / Orders). Testing note: React Router updates the URL
+  before the new page renders — wait for page content, not `location.pathname`.
 - Vite config (`client/vite.config.js`) wires together `@tailwindcss/vite`, a Vite ESLint
   plugin (lint errors surface in dev), `@vitejs/plugin-react`, and Babel with
   `reactCompilerPreset` — the React Compiler is active, so avoid manual memoization
@@ -353,7 +375,7 @@ that churros are bought pre-made with flavor applied only at sale time.
   badges on Stock and Home are the low-stock warning — both people open the app for every
   order anyway, so nothing pushes a notification. Finances shows all-time totals
   (`GET /finances/summary`) only; there's no per-day breakdown. Polling is wired
-  (`usePolling`, 7s). Don't build either unless Jui asks again.
+  (`refetchInterval`, 7s). Don't build either unless Jui asks again.
 - Auth is in place (JWT + bcrypt, `protect` on every route except login): **one account per
   person** (`name` = `Jui` / `Impact`, created with `server/scripts/seedAccount.js`), both
   with the same permissions — no roles. Centralized error handling still needs a review

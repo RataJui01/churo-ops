@@ -1,48 +1,93 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
 import { errorMessage, getJson } from '../src/api.js';
+import {
+  AFFECTED_BY,
+  LOAD_ONCE,
+  expenseQuery,
+  refreshAfterSave,
+} from '../src/queries.js';
 import { formatLoggedAt } from '../src/constants/stock.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
 import { inputClass, labelClass } from '../src/components/formClasses.js';
 
+// Loads the expense, then hands it to the form. Split in two so the form can
+// start its fields straight from the data (useState(expense.title)) instead
+// of copying each one in an effect once it arrives.
 function EditExpense() {
   const { id } = useParams();
+  // Loaded once, not polled, so what's being edited can't change underfoot
+  const { data: expense, error } = useQuery({
+    ...expenseQuery(id),
+    ...LOAD_ONCE,
+  });
+
+  // Loading or failed (a 404 also covers one deleted on the other phone)
+  if (!expense) {
+    return (
+      <SubPageShell title="Edit expense" backTo="/finances">
+        {error ? (
+          <div className="flex flex-col items-start gap-2">
+            <p role="alert" className="text-body-small text-danger">
+              {errorMessage(error)}
+            </p>
+            <Link
+              to="/finances"
+              className="text-body-small font-semibold text-brand"
+            >
+              Back to finances
+            </Link>
+          </div>
+        ) : (
+          <p className="text-body-small text-ink-muted">Loading expense…</p>
+        )}
+      </SubPageShell>
+    );
+  }
+
+  return <EditExpenseForm expense={expense} />;
+}
+
+// expense: as loaded — also what "changed" is measured against on Save
+function EditExpenseForm({ expense }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const url = `/api/v1/expenses/${expense._id}`;
 
-  // The expense as loaded (null = still loading) — also what "changed" is
-  // measured against on Save
-  const [expense, setExpense] = useState(null);
-  const [loadError, setLoadError] = useState('');
-
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(expense.title);
   // Kept as a string and converted when used, like NewExpense
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(String(expense.amount));
 
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   // Two taps, like the app's other delete buttons (Jui, 2026-10-05)
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  // Loaded once, not polled, so what's being edited can't change underfoot
-  useEffect(() => {
-    let ignore = false;
+  // replace: Back shouldn't return to an expense that was just saved/deleted
+  const leave = () => navigate('/finances', { replace: true });
 
-    getJson(`/api/v1/expenses/${id}`)
-      .then((body) => {
-        if (ignore) return;
-        const loaded = body.data.expense;
-        setExpense(loaded);
-        setTitle(loaded.title);
-        setAmount(String(loaded.amount));
-      })
-      .catch((err) => {
-        if (!ignore) setLoadError(errorMessage(err));
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [id]);
+  // Each waits for Finances to be refetched, so it shows the change on arrival
+  const save = useMutation({
+    mutationFn: async (changes) => {
+      await getJson(url, { method: 'PATCH', body: JSON.stringify(changes) });
+      await refreshAfterSave(queryClient, AFFECTED_BY.expense);
+    },
+    onSuccess: leave,
+    onError: (err) => setError(errorMessage(err)),
+  });
+  // A real delete (Jui, 2026-10-05) — hence the two taps
+  const remove = useMutation({
+    mutationFn: async () => {
+      await getJson(url, { method: 'DELETE' });
+      await refreshAfterSave(queryClient, AFFECTED_BY.expense);
+    },
+    onSuccess: leave,
+    onError: (err) => {
+      setError(errorMessage(err));
+      setConfirmingDelete(false);
+    },
+  });
+  const isSubmitting = save.isPending || remove.isPending;
 
   // Only what was actually changed, like EditStockItem — so an edit made on
   // the other phone to the other field isn't written over
@@ -53,7 +98,7 @@ function EditExpense() {
     return changes;
   }
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
 
     // Same checks as NewExpense, for the same reasons
@@ -69,65 +114,19 @@ function EditExpense() {
 
     const changes = changedFields();
     if (Object.keys(changes).length === 0) {
-      navigate('/finances', { replace: true });
+      leave();
       return;
     }
-
-    setIsSubmitting(true);
-    try {
-      await getJson(`/api/v1/expenses/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(changes),
-      });
-      // replace: Back shouldn't return to an expense that was just saved
-      navigate('/finances', { replace: true });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
+    save.mutate(changes);
   }
 
-  // A real delete (Jui, 2026-10-05) — hence the two taps
-  async function handleDelete() {
+  function handleDelete() {
     if (!confirmingDelete) {
       setConfirmingDelete(true);
       return;
     }
     setError('');
-    setIsSubmitting(true);
-    try {
-      await getJson(`/api/v1/expenses/${id}`, { method: 'DELETE' });
-      navigate('/finances', { replace: true });
-    } catch (err) {
-      setError(errorMessage(err));
-      setConfirmingDelete(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  // Loading or failed (a 404 also covers one deleted on the other phone)
-  if (loadError || !expense) {
-    return (
-      <SubPageShell title="Edit expense" backTo="/finances">
-        {loadError ? (
-          <div className="flex flex-col items-start gap-2">
-            <p role="alert" className="text-body-small text-danger">
-              {loadError}
-            </p>
-            <Link
-              to="/finances"
-              className="text-body-small font-semibold text-brand"
-            >
-              Back to finances
-            </Link>
-          </div>
-        ) : (
-          <p className="text-body-small text-ink-muted">Loading expense…</p>
-        )}
-      </SubPageShell>
-    );
+    remove.mutate();
   }
 
   return (
@@ -183,7 +182,7 @@ function EditExpense() {
             disabled={isSubmitting}
             className="min-h-12 rounded-md bg-brand text-button-primary text-on-brand hover:bg-brand-hover active:bg-brand-hover disabled:opacity-60"
           >
-            {isSubmitting && !confirmingDelete ? 'Saving…' : 'Save changes'}
+            {save.isPending ? 'Saving…' : 'Save changes'}
           </button>
           <button
             type="button"

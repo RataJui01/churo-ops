@@ -1,6 +1,11 @@
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { getJson } from '../src/api.js';
-import { usePolling } from '../src/hooks/usePolling.js';
+import { errorMessage } from '../src/api.js';
+import {
+  POLLED,
+  restocksQuery,
+  stockItemsQuery,
+} from '../src/queries.js';
 import {
   formatAmount,
   formatLoggedAt,
@@ -10,22 +15,28 @@ import AppShell from '../src/components/AppShell.jsx';
 import SectionLabel from '../src/components/SectionLabel.jsx';
 import StockLevel from '../src/components/StockLevel.jsx';
 
-// Every stock item (A–Z) plus the 20 newest restocks, fetched together.
-// Module-level so usePolling gets the same function every render.
-async function loadStock() {
-  const [items, log] = await Promise.all([
-    getJson('/api/v1/stock-items'),
-    getJson('/api/v1/restocks'),
-  ]);
-  return { stockItems: items.data.stockItems, restocks: log.data.restocks };
-}
-
 // Divider under every row but the last
 const dividerClass = 'not-last:border-b not-last:border-divider not-last:pb-2.5';
 
 function Stock() {
-  // Polled every 7s like Orders, so a restock on the other phone shows up here
-  const { data, error, retry } = usePolling(loadStock);
+  // Polled every 7s like Orders, so a restock on the other phone shows up
+  // here. Two queries rather than one: the item list is the same cache entry
+  // Home uses, so going between Home and Stock shows it at once.
+  const items = useQuery({ ...stockItemsQuery, ...POLLED });
+  const log = useQuery({ ...restocksQuery, ...POLLED });
+
+  const data =
+    items.data && log.data
+      ? { stockItems: items.data, restocks: log.data }
+      : null;
+  // Only before the first load: a refresh that fails later keeps the last
+  // data on screen
+  const failed = (!items.data && items.error) || (!log.data && log.error);
+  const error = failed ? errorMessage(failed) : '';
+  function retry() {
+    items.refetch();
+    log.refetch();
+  }
 
   // "low" in the subtitle counts Out items too — both need restocking
   const needRestock =

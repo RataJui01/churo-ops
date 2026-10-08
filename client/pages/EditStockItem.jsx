@@ -1,6 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
 import { errorMessage, getJson } from '../src/api.js';
+import {
+  AFFECTED_BY,
+  FORM_LIST,
+  LOAD_ONCE,
+  refreshAfterSave,
+  stockItemQuery,
+  stockItemsQuery,
+} from '../src/queries.js';
 import {
   UNITS,
   findItemByName,
@@ -31,66 +40,107 @@ const LEVEL_TEXT = {
   ok: "so it isn't flagged",
 };
 
+// Loads the item, then hands it to the form (see EditExpense for why it's
+// split in two)
 function EditStockItem() {
   const { id } = useParams();
+  // Loaded once, not polled, so what's being edited can't change underfoot
+  const { data: item, error } = useQuery({
+    ...stockItemQuery(id),
+    ...LOAD_ONCE,
+  });
+
+  // Loading, failed, or already deleted: no form
+  if (!item || item.isDeleted) {
+    const message = error
+      ? errorMessage(error)
+      : item && 'This item was deleted.';
+    return (
+      <SubPageShell title="Edit stock item" backTo="/stock">
+        {message ? (
+          <div className="flex flex-col items-start gap-2">
+            <p
+              role="alert"
+              className={`text-body-small ${error ? 'text-danger' : 'text-ink-muted'}`}
+            >
+              {message}
+            </p>
+            <Link
+              to="/stock"
+              className="text-body-small font-semibold text-brand"
+            >
+              Back to stock
+            </Link>
+          </div>
+        ) : (
+          <p className="text-body-small text-ink-muted">Loading item…</p>
+        )}
+      </SubPageShell>
+    );
+  }
+
+  return <EditStockItemForm item={item} />;
+}
+
+// item: as loaded — also what "changed" is measured against on Save
+function EditStockItemForm({ item }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const url = `/api/v1/stock-items/${item._id}`;
 
-  // The item as loaded (null = still loading) — also what "changed" is
-  // measured against on Save — and every other item, for the name check
-  const [item, setItem] = useState(null);
-  const [stockItems, setStockItems] = useState([]);
-  const [loadError, setLoadError] = useState('');
+  // Every other item, for the name check — the same cached list as Stock
+  const { data: stockItems = [] } = useQuery({
+    ...stockItemsQuery,
+    ...FORM_LIST,
+  });
 
-  const [name, setName] = useState('');
-  const [unit, setUnit] = useState('');
+  const [name, setName] = useState(item.name);
+  const [unit, setUnit] = useState(item.unit);
   // Number inputs are kept as strings and converted when used
-  const [quantity, setQuantity] = useState('');
-  const [threshold, setThreshold] = useState('');
+  const [quantity, setQuantity] = useState(String(item.quantity));
+  const [threshold, setThreshold] = useState(String(item.lowStockThreshold));
   // The four auto-deduction rules, keyed by field name (see RULE_INPUTS)
-  const [rules, setRules] = useState({});
+  const [rules, setRules] = useState(() =>
+    Object.fromEntries(
+      RULE_INPUTS.map(({ field }) => [field, String(item[field] ?? 0)]),
+    ),
+  );
 
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   // Two taps, like the app's other delete buttons (Jui, 2026-10-03)
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  // Loaded once, not polled, so what's being edited can't change underfoot
-  useEffect(() => {
-    let ignore = false;
+  // replace: Back shouldn't return to an item that was just saved/deleted
+  const leave = () => navigate('/stock', { replace: true });
 
-    Promise.all([
-      getJson(`/api/v1/stock-items/${id}`),
-      getJson('/api/v1/stock-items'),
-    ])
-      .then(([one, all]) => {
-        if (ignore) return;
-        const loaded = one.data.stockItem;
-        setItem(loaded);
-        setStockItems(all.data.stockItems);
-        setName(loaded.name);
-        setUnit(loaded.unit);
-        setQuantity(String(loaded.quantity));
-        setThreshold(String(loaded.lowStockThreshold));
-        setRules(
-          Object.fromEntries(
-            RULE_INPUTS.map(({ field }) => [field, String(loaded[field] ?? 0)]),
-          ),
-        );
-      })
-      .catch((err) => {
-        if (!ignore) setLoadError(errorMessage(err));
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [id]);
+  // Each waits for Stock's lists to be refetched, so they show the change
+  // on arrival
+  const save = useMutation({
+    mutationFn: async (changes) => {
+      await getJson(url, { method: 'PATCH', body: JSON.stringify(changes) });
+      await refreshAfterSave(queryClient, AFFECTED_BY.stockItem);
+    },
+    onSuccess: leave,
+    onError: (err) => setError(errorMessage(err)),
+  });
+  const remove = useMutation({
+    mutationFn: async () => {
+      await getJson(url, { method: 'DELETE' });
+      await refreshAfterSave(queryClient, AFFECTED_BY.stockItem);
+    },
+    onSuccess: leave,
+    onError: (err) => {
+      setError(errorMessage(err));
+      setConfirmingDelete(false);
+    },
+  });
+  const isSubmitting = save.isPending || remove.isPending;
 
   // Names must stay unique: flag a clash with any *other* item while typing.
   // A deleted item's name isn't in the list — the server explains that one.
   const clash = findItemByName(stockItems, name);
-  const isDuplicate = clash !== null && clash._id !== item?._id;
-  const unitChanged = item !== null && unit !== item.unit;
+  const isDuplicate = clash !== null && clash._id !== item._id;
+  const unitChanged = unit !== item.unit;
   const level = stockLevel({
     quantity: Number(quantity),
     lowStockThreshold: Number(threshold),
@@ -114,75 +164,26 @@ function EditStockItem() {
     return changes;
   }
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     if (isDuplicate) return;
     setError('');
 
     const changes = changedFields();
     if (Object.keys(changes).length === 0) {
-      navigate('/stock', { replace: true });
+      leave();
       return;
     }
-
-    setIsSubmitting(true);
-    try {
-      await getJson(`/api/v1/stock-items/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(changes),
-      });
-      // replace: Back shouldn't return to an item that was just saved
-      navigate('/stock', { replace: true });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
+    save.mutate(changes);
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!confirmingDelete) {
       setConfirmingDelete(true);
       return;
     }
     setError('');
-    setIsSubmitting(true);
-    try {
-      await getJson(`/api/v1/stock-items/${id}`, { method: 'DELETE' });
-      navigate('/stock', { replace: true });
-    } catch (err) {
-      setError(errorMessage(err));
-      setConfirmingDelete(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  // Loading, failed, or already deleted: no form
-  if (loadError || !item || item.isDeleted) {
-    const message = loadError || (item && 'This item was deleted.');
-    return (
-      <SubPageShell title="Edit stock item" backTo="/stock">
-        {message ? (
-          <div className="flex flex-col items-start gap-2">
-            <p
-              role="alert"
-              className={`text-body-small ${loadError ? 'text-danger' : 'text-ink-muted'}`}
-            >
-              {message}
-            </p>
-            <Link
-              to="/stock"
-              className="text-body-small font-semibold text-brand"
-            >
-              Back to stock
-            </Link>
-          </div>
-        ) : (
-          <p className="text-body-small text-ink-muted">Loading item…</p>
-        )}
-      </SubPageShell>
-    );
+    remove.mutate();
   }
 
   return (
