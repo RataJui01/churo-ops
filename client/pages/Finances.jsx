@@ -1,20 +1,11 @@
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { getJson } from '../src/api.js';
-import { usePolling } from '../src/hooks/usePolling.js';
+import { errorMessage } from '../src/api.js';
+import { POLLED, financesQuery } from '../src/queries.js';
 import { formatLoggedAt } from '../src/constants/stock.js';
 import AppShell from '../src/components/AppShell.jsx';
 import SectionLabel from '../src/components/SectionLabel.jsx';
 import StatCard from '../src/components/StatCard.jsx';
-
-// The all-time totals plus the 20 newest expenses, fetched together.
-// Module-level so usePolling gets the same function every render.
-async function loadFinances() {
-  const [summary, list] = await Promise.all([
-    getJson('/api/v1/finances/summary'),
-    getJson('/api/v1/expenses'),
-  ]);
-  return { summary: summary.data, expenses: list.data.expenses };
-}
 
 // "-฿518" rather than "฿-518" — only Profit can go below zero
 function formatBaht(amount) {
@@ -26,7 +17,12 @@ const dividerClass = 'not-last:border-b not-last:border-divider not-last:pb-2.5'
 
 function Finances() {
   // Polled every 7s like Stock, so an expense added on the other phone shows up
-  const { data, error, retry } = usePolling(loadFinances);
+  const finances = useQuery({ ...financesQuery, ...POLLED });
+  const data = finances.data ?? null;
+  // Only before the first load: a refresh that fails later keeps the last
+  // data on screen
+  const error = !data && finances.error ? errorMessage(finances.error) : '';
+  const retry = () => finances.refetch();
 
   // The cards are all-time totals, not this month's as in the design (Jui,
   // 2026-10-05): all three use the same range, so Profit is real

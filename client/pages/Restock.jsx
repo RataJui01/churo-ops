@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { errorMessage, getJson } from '../src/api.js';
+import {
+  AFFECTED_BY,
+  FORM_LIST,
+  refreshAfterSave,
+  stockItemsWithDeletedQuery,
+} from '../src/queries.js';
 import { UNITS, findItemByName, formatAmount } from '../src/constants/stock.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
 import { inputClass, labelClass } from '../src/components/formClasses.js';
@@ -14,30 +21,16 @@ function Restock() {
   // created, so it has to be a deliberate choice, not a default (Jui, 2026-10-01)
   const [unit, setUnit] = useState('');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
+  // For the name suggestions and the unit lock: shown from the cache at
+  // once, not polled or refetched on focus mid-form. Deleted items come too,
+  // only so their names can be recognised below.
+  const itemsQuery = useQuery({ ...stockItemsWithDeletedQuery, ...FORM_LIST });
   // null = still loading
-  const [stockItems, setStockItems] = useState(null);
-  const [loadError, setLoadError] = useState(false);
-
-  // Loaded once for the name suggestions and the unit lock, not polled.
-  // Deleted items come too, only so their names can be recognised below.
-  useEffect(() => {
-    let ignore = false;
-
-    getJson('/api/v1/stock-items?includeDeleted=true')
-      .then(({ data }) => {
-        if (!ignore) setStockItems(data.stockItems);
-      })
-      .catch(() => {
-        // The form still works without the list; the server checks units anyway
-        if (!ignore) setLoadError(true);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  const stockItems = itemsQuery.data ?? null;
+  // The form still works without the list; the server checks units anyway
+  const loadError = !stockItems && itemsQuery.isError;
 
   // Derived on every render: typing an existing name locks the unit to that
   // item's own (decision 1b); typing on to a new name gives back whatever unit
@@ -67,27 +60,26 @@ function Restock() {
     helpText = 'New item — it will start being tracked.';
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
-    setIsSubmitting(true);
-
-    try {
+  // Waits for Stock's lists to be refetched, so the restock is there on
+  // arrival
+  const addRestock = useMutation({
+    mutationFn: async (restock) => {
       await getJson('/api/v1/restocks', {
         method: 'POST',
-        body: JSON.stringify({
-          name,
-          quantity: Number(quantity),
-          unit: shownUnit,
-        }),
+        body: JSON.stringify(restock),
       });
-      // replace: Back shouldn't return to a form that was already sent
-      navigate('/stock', { replace: true });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
+      await refreshAfterSave(queryClient, AFFECTED_BY.restock);
+    },
+    // replace: Back shouldn't return to a form that was already sent
+    onSuccess: () => navigate('/stock', { replace: true }),
+    onError: (err) => setError(errorMessage(err)),
+  });
+  const isSubmitting = addRestock.isPending;
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    addRestock.mutate({ name, quantity: Number(quantity), unit: shownUnit });
   }
 
   return (

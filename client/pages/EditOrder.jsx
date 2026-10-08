@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
 import { errorMessage, getJson } from '../src/api.js';
+import {
+  AFFECTED_BY,
+  LOAD_ONCE,
+  orderQuery,
+  refreshAfterSave,
+} from '../src/queries.js';
 import { getLinePrice } from '../src/constants/prices.js';
 import {
   STATUS_FLAGS,
@@ -18,29 +25,59 @@ import {
   legendClass,
 } from '../src/components/formClasses.js';
 
+// Loads the order, then hands it to the form (see EditExpense for why it's
+// split in two)
 function EditOrder() {
   const { id } = useParams();
+  // Loaded once, same as NewOrder's round list — not polled, so what you're
+  // editing can't change under you
+  const { data: order, error } = useQuery({ ...orderQuery(id), ...LOAD_ONCE });
+
+  if (!order || order.isCancelled) {
+    return (
+      <SubPageShell title="Edit order" backTo="/orders">
+        {error || order?.isCancelled ? (
+          <div className="flex flex-col items-start gap-2">
+            <p
+              role="alert"
+              className={`text-body-small ${error ? 'text-danger' : 'text-ink-muted'}`}
+            >
+              {error ? errorMessage(error) : 'This order was cancelled.'}
+            </p>
+            <Link to="/orders" className="text-body-small font-semibold text-brand">
+              Back to orders
+            </Link>
+          </div>
+        ) : (
+          <p className="text-body-small text-ink-muted">Loading order…</p>
+        )}
+      </SubPageShell>
+    );
+  }
+
+  return <EditOrderForm order={order} />;
+}
+
+// order: as loaded; the fields below start from it and are only sent back on
+// "Save changes"
+function EditOrderForm({ order }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const url = `/api/v1/orders/${order._id}`;
 
-  // The order as loaded (null = still loading); the form fields below start
-  // from it and are only sent back on "Save changes"
-  const [order, setOrder] = useState(null);
-  const [loadError, setLoadError] = useState('');
-
-  const [status, setStatus] = useState('pending');
+  const [status, setStatus] = useState(() => orderStatus(order));
   const [statusError, setStatusError] = useState('');
-  const [isSavingStatus, setIsSavingStatus] = useState(false);
 
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(order.items);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
-  const [deliveryFee, setDeliveryFee] = useState(0);
-  const [deliveryTime, setDeliveryTime] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [note, setNote] = useState('');
+  const [deliveryFee, setDeliveryFee] = useState(order.deliveryFee);
+  // Orders saved before these became required may not have them
+  const [deliveryTime, setDeliveryTime] = useState(order.deliveryTime ?? '');
+  const [customerName, setCustomerName] = useState(order.customerName ?? '');
+  const [note, setNote] = useState(order.note ?? '');
 
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   // "Cancel order" needs two taps: the first only arms it (Jui, 2026-09-29) —
   // it sits right under "Save changes", so a slip of the thumb is easy
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -48,38 +85,8 @@ function EditOrder() {
   const total =
     items.reduce((sum, item) => sum + getLinePrice(item), 0) + deliveryFee;
 
-  // Loaded once, same as NewOrder's round list — not polled, so what you're
-  // editing can't change under you
-  useEffect(() => {
-    let ignore = false;
-
-    getJson(`/api/v1/orders/${id}`)
-      .then(({ data }) => {
-        if (ignore) return;
-        const loaded = data.order;
-        setOrder(loaded);
-        setStatus(orderStatus(loaded));
-        setItems(loaded.items);
-        setDeliveryFee(loaded.deliveryFee);
-        // Orders saved before these became required may not have them
-        setDeliveryTime(loaded.deliveryTime ?? '');
-        setCustomerName(loaded.customerName ?? '');
-        setNote(loaded.note ?? '');
-      })
-      .catch((err) => {
-        if (!ignore) setLoadError(errorMessage(err));
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [id]);
-
   function patchOrder(body) {
-    return getJson(`/api/v1/orders/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    });
+    return getJson(url, { method: 'PATCH', body: JSON.stringify(body) });
   }
 
   function backToOrders() {
@@ -90,24 +97,48 @@ function EditOrder() {
 
   // Saved the moment it's tapped, not on "Save changes": marking an order
   // done/delivered is the most common reason to open this page, so it should
-  // take one tap. Shown right away; put back if the server says no.
-  async function changeStatus(next) {
-    const previous = status;
-    setStatus(next);
-    setStatusError('');
-    setIsSavingStatus(true);
-    try {
-      await patchOrder(STATUS_FLAGS[next]);
-    } catch (err) {
-      setStatus(previous);
+  // take one tap. Shown right away; put back if the server says no. We stay
+  // on this page, so the lists are refreshed without waiting.
+  const statusSave = useMutation({
+    mutationFn: (next) => patchOrder(STATUS_FLAGS[next]),
+    onMutate: (next) => {
+      const previous = status;
+      setStatus(next);
+      setStatusError('');
+      return { previous };
+    },
+    onError: (err, _next, context) => {
+      setStatus(context.previous);
       setStatusError(errorMessage(err));
-    } finally {
-      setIsSavingStatus(false);
-    }
-  }
+    },
+    onSuccess: () => refreshAfterSave(queryClient, AFFECTED_BY.order),
+  });
+
+  // Save and Cancel both wait for Orders (and the stock and finances lists,
+  // since items decide stock and revenue) to be refetched before leaving
+  const save = useMutation({
+    mutationFn: async (body) => {
+      await patchOrder(body);
+      await refreshAfterSave(queryClient, AFFECTED_BY.order);
+    },
+    onSuccess: backToOrders,
+    onError: (err) => setError(errorMessage(err)),
+  });
+  const cancel = useMutation({
+    mutationFn: async () => {
+      await patchOrder({ isCancelled: true });
+      await refreshAfterSave(queryClient, AFFECTED_BY.order);
+    },
+    onSuccess: backToOrders,
+    onError: (err) => {
+      setError(errorMessage(err));
+      setConfirmingCancel(false);
+    },
+  });
+  const isSubmitting = save.isPending || cancel.isPending;
 
   // Same checks as NewOrder: the browser handles the `required` fields first
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
@@ -122,41 +153,23 @@ function EditOrder() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await patchOrder({
-        items,
-        deliveryFee,
-        deliveryTime,
-        customerName,
-        note,
-        totalPrice: total,
-      });
-      backToOrders();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
+    save.mutate({
+      items,
+      deliveryFee,
+      deliveryTime,
+      customerName,
+      note,
+      totalPrice: total,
+    });
   }
 
-  async function handleCancel() {
+  function handleCancel() {
     if (!confirmingCancel) {
       setConfirmingCancel(true);
       return;
     }
-
     setError('');
-    setIsSubmitting(true);
-    try {
-      await patchOrder({ isCancelled: true });
-      backToOrders();
-    } catch (err) {
-      setError(errorMessage(err));
-      setConfirmingCancel(false);
-    } finally {
-      setIsSubmitting(false);
-    }
+    cancel.mutate();
   }
 
   function closeItemBuilder() {
@@ -164,28 +177,6 @@ function EditOrder() {
     // The builder (and whatever was picked in it) is gone, so nothing is
     // waiting to be added any more
     setHasDraft(false);
-  }
-
-  if (loadError || !order || order.isCancelled) {
-    return (
-      <SubPageShell title="Edit order" backTo="/orders">
-        {loadError || order?.isCancelled ? (
-          <div className="flex flex-col items-start gap-2">
-            <p
-              role="alert"
-              className={`text-body-small ${loadError ? 'text-danger' : 'text-ink-muted'}`}
-            >
-              {loadError || 'This order was cancelled.'}
-            </p>
-            <Link to="/orders" className="text-body-small font-semibold text-brand">
-              Back to orders
-            </Link>
-          </div>
-        ) : (
-          <p className="text-body-small text-ink-muted">Loading order…</p>
-        )}
-      </SubPageShell>
-    );
   }
 
   return (
@@ -203,8 +194,8 @@ function EditOrder() {
                     id={`status-${value}`}
                     name="status"
                     checked={isSelected}
-                    disabled={isSavingStatus}
-                    onChange={() => changeStatus(value)}
+                    disabled={statusSave.isPending}
+                    onChange={() => statusSave.mutate(value)}
                     className="peer sr-only"
                   />
                   <label
