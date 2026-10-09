@@ -111,6 +111,22 @@ never mint a JWT.
   "Loading…" for 180–575 ms; request count and latency are unchanged (still one
   `GET /orders` per round on Home / Orders). Testing note: React Router updates the URL
   before the new page renders — wait for page content, not `location.pathname`.
+- **Tab switch animation** (Jui, 2026-10-08, not in the design): `AppShell`'s brown pill
+  slides to the new tab and `<main>` fades in (`animate-fade-in`, defined in `@theme` in
+  `index.css`, 200ms). Plain CSS, not View Transitions (they'd draw the pill above the tab
+  labels). Every page renders its own `AppShell`, so the last tab is remembered in a
+  module-level `lastTab` object and the pill moves one frame after mounting there; labels
+  are coloured by the pill's position, `aria-current` still by the route. Orders'
+  `RoundOrderGroup` panels slide open / shut (200ms) with a one-row grid going
+  `grid-rows-[0fr]` ↔ `grid-rows-[1fr]` (CSS can't animate `height: auto`): the panel is
+  always rendered and `inert` while closed; the header has `aria-expanded`. Home's End round
+  (Jui, 2026-10-09): the button reads "Ending…" during the PATCH, then the card slides out
+  left + fades while its row closes up (same grid trick, 200ms); `RoundRow` calls `onGone`
+  after the slide, and only then does Home drop it from the cache and refresh — a failed
+  PATCH still leaves the row. Tailwind v4's `translate-*` utilities use the CSS `translate`
+  property, so transitions must list `translate`, not `transform`. Every animation must have
+  a `motion-reduce:` off switch. More animations may follow from Jui's design on
+  the `feat/animations` branch.
 - Vite config (`client/vite.config.js`) wires together `@tailwindcss/vite`, a Vite ESLint
   plugin (lint errors surface in dev), `@vitejs/plugin-react`, and Babel with
   `reactCompilerPreset` — the React Compiler is active, so avoid manual memoization

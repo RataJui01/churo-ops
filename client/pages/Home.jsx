@@ -50,17 +50,19 @@ function Home() {
 
   // No confirmation step before closing a round (matches the design, and
   // Jui confirmed it stays that way) — a swipe + tap ends it right away.
+  // The row waits for this to succeed, slides out (ActiveRounds), and only
+  // then calls removeEndedRound — so a refetch can't pull it away mid-slide
   const endRound = useMutation({
     mutationFn: (id) => getJson(`/api/v1/rounds/${id}`, { method: 'PATCH' }),
-    onSuccess: ({ data }) => {
-      // Drop the row at once, then let the lists catch up (Orders shows
-      // ended rounds without the green dot)
-      queryClient.setQueryData(activeRoundsWithEarningsQuery.queryKey, (old) =>
-        old?.filter((r) => r._id !== data.round._id),
-      );
-      refreshAfterSave(queryClient, AFFECTED_BY.round);
-    },
   });
+  function removeEndedRound(id) {
+    queryClient.setQueryData(activeRoundsWithEarningsQuery.queryKey, (old) =>
+      old?.filter((r) => r._id !== id),
+    );
+    // Then let the lists catch up (Orders shows ended rounds without the
+    // green dot)
+    refreshAfterSave(queryClient, AFFECTED_BY.round);
+  }
   // Separate from `error`: a failed "End round" shouldn't replace the whole
   // rounds list with the full-page error state used for the initial load.
   // The row is left as-is (still swiped open) so the operator can just tap
@@ -87,7 +89,11 @@ function Home() {
           <p className="text-body-small text-ink-muted">Loading rounds…</p>
         ) : (
           <div className="flex flex-col gap-2">
-            <ActiveRounds rounds={rounds} onEnd={endRound.mutate} />
+            <ActiveRounds
+              rounds={rounds}
+              onEnd={endRound.mutateAsync}
+              onGone={removeEndedRound}
+            />
             {endRoundError && (
               <p role="alert" className="text-body-small text-danger">
                 {endRoundError}

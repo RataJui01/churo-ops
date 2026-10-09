@@ -82,6 +82,16 @@
   --shadow-md: 0 4px 8px rgba(43, 33, 24, 0.1), 0 2px 4px rgba(43, 33, 24, 0.06);
   --shadow-lg: 0 12px 24px rgba(43, 33, 24, 0.16),
     0 4px 8px rgba(43, 33, 24, 0.08);
+
+  /* Motion (not in tokens.json — Jui, 2026-10-08). `animate-fade-in`: a
+     page's content fading in on a tab switch. Always pair with
+     motion-reduce:animate-none. */
+  --animate-fade-in: fade-in 200ms ease-out;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 @layer base {

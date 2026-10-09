@@ -26,6 +26,7 @@ function RoundOrderGroup({ round, orders, defaultOpen = false }) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
         className={`flex w-full items-center justify-between p-3.5 ${
           isOpen ? 'border-b border-border' : ''
         }`}
@@ -53,7 +54,7 @@ function RoundOrderGroup({ round, orders, defaultOpen = false }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
-            className={`shrink-0 text-ink-muted transition-transform duration-150 ${
+            className={`shrink-0 text-ink-muted transition-transform duration-200 motion-reduce:transition-none ${
               isOpen ? '' : '-rotate-90'
             }`}
           >
@@ -62,42 +63,54 @@ function RoundOrderGroup({ round, orders, defaultOpen = false }) {
         </div>
       </button>
 
-      {isOpen && (
-        <div className="flex flex-col gap-3 p-3.5">
-          {pendingCount > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto">
-              {FILTERS.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFilter(f)}
-                  className={`shrink-0 rounded-pill px-3 py-1 text-label capitalize ${
-                    filter === f
-                      ? 'bg-surface-peach font-semibold text-brand'
-                      : 'border border-border text-ink-muted'
-                  }`}
+      {/* Always rendered so it can slide open and shut (Jui, 2026-10-08 —
+          not in the design): the one grid row goes from 0fr (closed) to 1fr
+          (its content's height), which CSS can animate where height: auto
+          can't. inert keeps the hidden rows out of Tab order and away from
+          screen readers while closed. */}
+      <div
+        inert={!isOpen}
+        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-col gap-3 p-3.5">
+            {pendingCount > 0 && (
+              <div className="flex gap-1.5 overflow-x-auto">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFilter(f)}
+                    className={`shrink-0 rounded-pill px-3 py-1 text-label capitalize ${
+                      filter === f
+                        ? 'bg-surface-peach font-semibold text-brand'
+                        : 'border border-border text-ink-muted'
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-col gap-2.5">
+              {visibleOrders.map((order, i) => (
+                <div
+                  key={order._id}
+                  className={
+                    i === visibleOrders.length - 1
+                      ? undefined
+                      : 'border-b border-divider pb-2.5'
+                  }
                 >
-                  {f}
-                </button>
+                  <OrderRow order={order} />
+                </div>
               ))}
             </div>
-          )}
-          <div className="flex flex-col gap-2.5">
-            {visibleOrders.map((order, i) => (
-              <div
-                key={order._id}
-                className={
-                  i === visibleOrders.length - 1
-                    ? undefined
-                    : 'border-b border-divider pb-2.5'
-                }
-              >
-                <OrderRow order={order} />
-              </div>
-            ))}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
