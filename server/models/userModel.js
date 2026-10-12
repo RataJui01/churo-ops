@@ -20,6 +20,12 @@ const userSchema = new mongoose.Schema({
     minlength: 8,
     select: false,
   },
+  // Goes into every token; Log out adds 1, which ends every token issued
+  // before (authController.protect compares the two)
+  tokenVersion: {
+    type: Number,
+    default: 0,
+  },
 });
 
 userSchema.methods.correctPassword = async function (

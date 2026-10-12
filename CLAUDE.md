@@ -38,8 +38,9 @@ The server was rebuilt from the live design rather than restored from the old co
 
 What's left is optional; ask Jui before starting any of it: the known gaps listed under
 "Status and what's left" at the end of this file, updating the live design artifact to match
-the app (Jui's job), a deploy (needs the error-handling review first), a README, automated
-tests, and the stretch goals (TypeScript, Socket.io). React Query was added 2026-10-08
+the app (Jui's job), a deploy (the pre-deploy security work is done — `todo.TODO`
+10-12-26; step 11 there is the deploy-day checklist), a README, automated tests, and the
+stretch goals (TypeScript, Socket.io). React Query was added 2026-10-08
 (see Client architecture notes).
 
 ## Structure
@@ -85,8 +86,12 @@ No test runner is configured yet.
 - `npm start` — run via nodemon (`server.js`)
 
 No lint, build, or automated test runner is configured yet. `server/scripts/` is gitignored
-and holds the one-off seed scripts (`seedAccount.js`, `seedStock.js`; run with `node` from
-`server/`). Features have been verified with throwaway scripts that call the controllers
+and holds the one-off seed scripts, run with `node` from `server/`: `seedAccount.js <name>
+<email>` (asks for the password twice, hidden, 12+ characters — never on the command line)
+and `seedStock.js`. Both read the env file named in `ENV_FILE` (default `config.env`;
+`ENV_FILE=config.prod.env` for production — `server/config.*.env` is gitignored), print
+which database they're about to write to and need a "y" (shared `scripts/scriptEnv.js`).
+There's no sign-up page on purpose: accounts are only made with this script. Features have been verified with throwaway scripts that call the controllers
 directly against Atlas (test data named "ZZ …", removed afterwards, real counts snapshotted
 and restored when stock is touched) plus Playwright for the UI — Jui logs in for Playwright;
 never mint a JWT.
@@ -125,8 +130,7 @@ never mint a JWT.
   after the slide, and only then does Home drop it from the cache and refresh — a failed
   PATCH still leaves the row. Tailwind v4's `translate-*` utilities use the CSS `translate`
   property, so transitions must list `translate`, not `transform`. Every animation must have
-  a `motion-reduce:` off switch. More animations may follow from Jui's design on
-  the `feat/animations` branch.
+  a `motion-reduce:` off switch.
 - Vite config (`client/vite.config.js`) wires together `@tailwindcss/vite`, a Vite ESLint
   plugin (lint errors surface in dev), `@vitejs/plugin-react`, and Babel with
   `reactCompilerPreset` — the React Compiler is active, so avoid manual memoization
@@ -208,6 +212,13 @@ never mint a JWT.
   bare `.env`).
 - Every route except `POST /users/login` is behind `authController.protect`. Handlers are
   wrapped in `catchAsync` and report expected failures with `AppError` (404 / 400).
+- Hardening (2026-10-12, from the security review): `helmet()`; CORS only for
+  `CLIENT_ORIGIN` (comma-separated, required — `app.js` throws at start without it, since
+  an unset origin would make `cors()` allow every site); `trust proxy` 1 only when
+  `NODE_ENV=production` (the host's proxy; in development it would let anyone fake their IP);
+  login refuses non-string email / password (a `{ "$gt": "" }` email used to match the first
+  account) and lower-cases the email; `express-rate-limit` on login — 10 failed requests per
+  15 min per IP, successful ones don't count, 429 through `errorController`.
 - Patterns used throughout: edits are `findById` + `set` + `save()` with a whitelist of
   editable fields (full validation, only changed paths written); counts change with atomic
   `$inc`, never read-modify-write, because two phones write at once; the record (order,
@@ -215,12 +226,12 @@ never mint a JWT.
   `req.user.name`, never the body; soft deletes filter with `{ $ne: true }` so documents
   saved before the flag existed still match; Mongoose 9 uses `returnDocument: 'after'`, not
   `{ new: true }`.
-- `errorController` only converts Mongoose `ValidationError` / `CastError` to 400 in
-  production; in development they reach the client as 500 with the raw message, and with
-  `NODE_ENV` unset no response is sent. Left as is on purpose (Jui, 2026-10-05: dev-only,
-  the raw error helps debugging) — review before any real deploy. Add / Edit expense check
-  their own input first so their users never see it; the other forms show the server's
-  message as-is.
+- `errorController` (reworked 2026-10-12 before deploy): `toKnownError()` turns JWT errors
+  into 401 and `CastError` / duplicate key / `ValidationError` / broken JSON into 400
+  (oversized body 413) in **every** environment; operational errors send their message,
+  anything else is logged and answered with a generic 500. Development adds the stack (and
+  an unknown error's message); every other value of `NODE_ENV`, including none, behaves like
+  production, so no request is left hanging.
 
 ## Domain model
 
@@ -376,7 +387,9 @@ that churros are bought pre-made with flavor applied only at sale time.
     (see Client architecture notes).
   - A 7-digit amount ("-฿1,234,567") overflows its Finances card by ~8px at 390px; 6 digits
     fit.
-  - The `errorController` dev-environment behaviour (see Server architecture notes).
+  - `totalPrice` is trusted from the client — any logged-in person can set an order's total
+    (Jui, 2026-10-12: fine while only Jui and Impact have accounts; recheck before adding a
+    third).
   - The live design artifact lags the app: old 3-flavor menu, "Partner" instead of
     "Impact", Finances "This month", and app-only additions (Out badge, Clear selection,
     In stock now, auto-deduct rules, red negative Profit). Updating it is Jui's job.
@@ -394,12 +407,16 @@ that churros are bought pre-made with flavor applied only at sale time.
   (`refetchInterval`, 7s). Don't build either unless Jui asks again.
 - Auth is in place (JWT + bcrypt, `protect` on every route except login): **one account per
   person** (`name` = `Jui` / `Impact`, created with `server/scripts/seedAccount.js`), both
-  with the same permissions — no roles. Centralized error handling still needs a review
-  before any real internet-facing deploy. **Log out** (built 2026-10-05) is a button in
-  Home's header only (`AppShell`'s `showLogout` prop, as in the design; no confirmation).
-  It is client-side only — `logout()` in `client/src/api.js` removes the token and does a
-  full `location.replace('/login')`; there's no server endpoint, so the JWT itself stays
-  valid until `JWT_EXPIRES_IN`. `apiFetch`'s 401 branch calls the same `logout()`.
+  with the same permissions — no roles. Tokens last 30 days (`JWT_EXPIRES_IN`, was 90) and
+  carry the account's `tokenVersion` (`{ id, v }`); `protect` refuses a token whose version
+  no longer matches (401 "Your session has ended"), with no extra query since it loads the
+  user anyway. **Log out** (button in Home's header only, `AppShell`'s `showLogout`, no
+  confirmation) calls `POST /users/logout`, which `$inc`s `tokenVersion` — every token of
+  that account, on every phone, stops working (Jui, 2026-10-12). Client side,
+  `client/src/api.js` has `logout()` (server call, 5 s timeout, then always ends the session
+  locally so nobody is stuck offline) and `endSession()` (remove the token, full
+  `location.replace('/login')`), which `apiFetch` uses on any 401. The dev `JWT_SECRET` was
+  replaced with 512 random bits on 2026-10-12; production must get its own.
 
 ## Formatting
 
