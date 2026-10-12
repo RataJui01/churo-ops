@@ -1,17 +1,18 @@
-const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const { promisify } = require('util');
 
-const signToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, {
+// v is the account's tokenVersion: bumping it (Log out) makes every token
+// signed before unusable, which a JWT on its own can't do
+const signToken = (user) =>
+  jwt.sign({ id: user._id, v: user.tokenVersion }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 
 const createSendToken = (user, statusCode, res) => {
-  const token = signToken(user._id);
+  const token = signToken(user);
 
   res.status(statusCode).json({
     status: 'Success',
@@ -25,11 +26,22 @@ const createSendToken = (user, statusCode, res) => {
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
+  // Strings only: a JSON body can carry an object, and { "$gt": "" } as the
+  // email would be read by MongoDB as an operator and match the first
+  // account without knowing any address (found in the 2026-10-12 review)
+  if (
+    typeof email !== 'string' ||
+    typeof password !== 'string' ||
+    !email ||
+    !password
+  ) {
     return next(new AppError('Please provide email and password', 400));
   }
 
-  const user = await User.findOne({ email }).select('+password');
+  // The model stores emails lower-case, so "Jui@…" has to match too
+  const user = await User.findOne({ email: email.trim().toLowerCase() }).select(
+    '+password',
+  );
 
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError('Incorrect email or password', 401));
@@ -65,6 +77,27 @@ exports.protect = catchAsync(async (req, res, next) => {
     );
   }
 
+  // Logged out since this token was signed (on this phone or another one).
+  // No extra query: the user was loaded above anyway.
+  if (decoded.v !== currentUser.tokenVersion) {
+    return next(
+      new AppError('Your session has ended. Please log in again.', 401),
+    );
+  }
+
   req.user = currentUser;
   next();
+});
+
+// Log out on the server too (Jui, 2026-10-12): every token this account has —
+// on every phone — stops working. $inc is atomic and also works on an
+// account saved before tokenVersion existed (it starts counting from 1).
+exports.logout = catchAsync(async (req, res, next) => {
+  await User.updateOne({ _id: req.user._id }, { $inc: { tokenVersion: 1 } });
+
+  // 200 with a JSON body, like the other endpoints
+  res.status(200).json({
+    status: 'success',
+    data: null,
+  });
 });
