@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon server.js",
-    "start:prod": "cross-env NODE_ENV=production nodemon server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +14,6 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
-    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",
@@ -24,5 +23,8 @@
     "mongoose": "^9.9.3",
     "morgan": "^1.11.0",
     "validator": "^13.15.35"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
