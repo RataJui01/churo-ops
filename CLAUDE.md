@@ -70,6 +70,29 @@ stretch goals (TypeScript, Socket.io). React Query was added 2026-10-08
   needs Jui's explicit OK first, and cleanup scripts must refuse unless each match is
   exactly what was approved (as with the 2026-10-14 test data).
 
+### Merging to `main` is deploying
+
+Vercel and Railway both deploy `main` automatically within minutes of a merge. Local work,
+branches and PRs never touch production (Vercel's PR previews can't log in — their address
+isn't in `CLIENT_ORIGIN`, on purpose — so test locally, not on a preview). Before every
+merge (Jui, 2026-10-14):
+
+1. **Tested locally first** — against the dev database (throwaway scripts + Playwright, as
+   for every feature so far); a broken merge reaches both phones at once.
+2. **Know the way back** — Vercel: Deployments → the previous one → Instant Rollback;
+   Railway: Deployments → the previous one → Rollback. Then fix on a new branch.
+3. **Model changes** — a rollback only undoes code, never data. Back up production
+   (`backupDb.js`) before merging anything that changes a model, and handle documents that
+   predate a new field (the `{ $ne: true }` pattern; no new `required` field without a
+   default or a plan for old documents).
+4. **Keep the API compatible** — a phone with the app open keeps the old JavaScript until
+   it reloads, so the new backend should still accept the old requests.
+5. **New environment variables** — set them in Railway's / Vercel's dashboard before (or
+   with) the merge; otherwise it works locally and breaks in production. A changed
+   `VITE_*` variable needs a Vercel redeploy.
+6. **Timing** — Railway restarts the server (about a minute, and the login rate limit's
+   memory resets), so don't merge while orders are being taken.
+
 ## Structure
 
 Two independent npm projects, no root package.json or workspace tooling tying them together:
