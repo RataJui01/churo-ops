@@ -38,13 +38,37 @@ The server was rebuilt from the live design rather than restored from the old co
 
 What's left is optional; ask Jui before starting any of it: the known gaps listed under
 "Status and what's left" at the end of this file, updating the live design artifact to match
-the app (Jui's job), a deploy (in progress, `todo.TODO` 10-13-26 — frontend on Vercel
-Hobby, backend on Railway, database `churo-ops-prod` in its own Atlas project, already
-seeded; Jui knows Hobby is for non-commercial use and accepted that for now;
-`client/vercel.json` sends every path to `index.html` so React Router routes survive a
-refresh), a README, automated tests, and the
+the app (Jui's job), a README, automated tests, and the
 stretch goals (TypeScript, Socket.io). React Query was added 2026-10-08
 (see Client architecture notes).
+
+**Deployed 2026-10-14** (`todo.TODO` 10-13-26, PR #15) — see "Production" below.
+
+## Production
+
+- **Frontend: Vercel Hobby**, project root `client/`, `VITE_API_URL` = the Railway address
+  (baked in at build time — changing it needs a Vercel redeploy). `client/vercel.json` sends
+  every path to `index.html` so React Router routes survive a refresh. Jui knows Hobby is
+  for non-commercial use and Churo Bites is a real business; accepted for now — the
+  frontend is static files and can move to Netlify / Cloudflare Pages or go Pro later.
+- **Backend: Railway**, root `server/`, runs `npm start` (`node server.js`). Variables:
+  `NODE_ENV=production`, `DATABASE`, `DATABASE_PASSWORD`, `JWT_SECRET` (its own, not dev's),
+  `JWT_EXPIRES_IN=30d`, `CLIENT_ORIGIN` = the Vercel address; no `PORT` (Railway sets it).
+  `config.env` isn't in git, so Railway's variables are the only source there.
+- **Database: `churo-ops-prod`** on its own Atlas project / free cluster (dev's `churo-ops`
+  is a different project), a database user with readWrite on that database only; Network
+  Access `0.0.0.0/0` because Railway has no fixed IP. Seeded with both accounts and the 5
+  starting items. `server/config.prod.env` (gitignored) holds the same values for running
+  the scripts against production with `ENV_FILE=config.prod.env`.
+- **Deploy order** if it's ever redone: backend first (with `CLIENT_ORIGIN` set to the
+  expected Vercel address — the server won't start without one, and fixing it is just a
+  restart), then the frontend with the real `VITE_API_URL`.
+- **Backups** (free Atlas has none): Jui runs `backupDb.js` by hand once a week — see the
+  scripts under Commands. Backup files hold both accounts' emails and password hashes:
+  never in the repo, never anywhere public.
+- **Touching production data**: read-only checks are fine; anything that writes or deletes
+  needs Jui's explicit OK first, and cleanup scripts must refuse unless each match is
+  exactly what was approved (as with the 2026-10-14 test data).
 
 ## Structure
 
@@ -96,7 +120,14 @@ and holds the one-off seed scripts, run with `node` from `server/`: `seedAccount
 and `seedStock.js`. Both read the env file named in `ENV_FILE` (default `config.env`;
 `ENV_FILE=config.prod.env` for production — `server/config.*.env` is gitignored), print
 which database they're about to write to and need a "y" (shared `scripts/scriptEnv.js`).
-There's no sign-up page on purpose: accounts are only made with this script. Features have been verified with throwaway scripts that call the controllers
+There's no sign-up page on purpose: accounts are only made with this script.
+`backupDb.js` (2026-10-14, read-only, no y/N) saves every collection as canonical EJSON
+(keeps ObjectId / Date types) plus `_meta.json` (counts, indexes) to
+`D:\Backups\churo-ops\<date-time>-<db>\` (`BACKUP_DIR` to change; refuses a folder inside
+the repo) and reads the files back to check them. `restoreDb.js <folder> [--db <name>]`
+restores only into an empty database — it never overwrites or deletes — asks y/N and
+creates the indexes before inserting. A practice restore into a throwaway database on the
+dev cluster matched the backup exactly. Features have been verified with throwaway scripts that call the controllers
 directly against Atlas (test data named "ZZ …", removed afterwards, real counts snapshotted
 and restored when stock is touched) plus Playwright for the UI — Jui logs in for Playwright;
 never mint a JWT.
@@ -424,7 +455,7 @@ that churros are bought pre-made with flavor applied only at sale time.
   `client/src/api.js` has `logout()` (server call, 5 s timeout, then always ends the session
   locally so nobody is stuck offline) and `endSession()` (remove the token, full
   `location.replace('/login')`), which `apiFetch` uses on any 401. The dev `JWT_SECRET` was
-  replaced with 512 random bits on 2026-10-12; production must get its own.
+  replaced with 512 random bits on 2026-10-12; production has its own (see Production).
 
 ## Formatting
 
