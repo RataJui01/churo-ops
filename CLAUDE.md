@@ -38,8 +38,11 @@ The server was rebuilt from the live design rather than restored from the old co
 
 What's left is optional; ask Jui before starting any of it: the known gaps listed under
 "Status and what's left" at the end of this file, updating the live design artifact to match
-the app (Jui's job), a deploy (the pre-deploy security work is done — `todo.TODO`
-10-12-26; step 11 there is the deploy-day checklist), a README, automated tests, and the
+the app (Jui's job), a deploy (in progress, `todo.TODO` 10-13-26 — frontend on Vercel
+Hobby, backend on Railway, database `churo-ops-prod` in its own Atlas project, already
+seeded; Jui knows Hobby is for non-commercial use and accepted that for now;
+`client/vercel.json` sends every path to `index.html` so React Router routes survive a
+refresh), a README, automated tests, and the
 stretch goals (TypeScript, Socket.io). React Query was added 2026-10-08
 (see Client architecture notes).
 
@@ -83,7 +86,9 @@ Run commands from within each subdirectory.
 No test runner is configured yet.
 
 ### server/
-- `npm start` — run via nodemon (`server.js`)
+- `npm run dev` — run with `node --watch` (restarts on file changes; replaced the globally
+  installed nodemon on 2026-10-13 — nodemon's dependencies had 3 high audit warnings)
+- `npm start` — plain `node server.js`; what Railway runs (`engines.node` is `24.x`)
 
 No lint, build, or automated test runner is configured yet. `server/scripts/` is gitignored
 and holds the one-off seed scripts, run with `node` from `server/`: `seedAccount.js <name>
@@ -218,7 +223,10 @@ never mint a JWT.
   `NODE_ENV=production` (the host's proxy; in development it would let anyone fake their IP);
   login refuses non-string email / password (a `{ "$gt": "" }` email used to match the first
   account) and lower-cases the email; `express-rate-limit` on login — 10 failed requests per
-  15 min per IP, successful ones don't count, 429 through `errorController`.
+  15 min per IP, successful ones don't count, 429 through `errorController`. In production
+  the limiter keys on `X-Real-IP` (2026-10-13): Railway's edge sets it to the visitor's
+  address, while the number of proxies in front of the app varies, so `req.ip` could be a
+  Railway proxy's and everyone would share one limit; development ignores the header.
 - Patterns used throughout: edits are `findById` + `set` + `save()` with a whitelist of
   editable fields (full validation, only changed paths written); counts change with atomic
   `$inc`, never read-modify-write, because two phones write at once; the record (order,
