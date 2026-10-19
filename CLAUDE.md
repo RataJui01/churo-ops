@@ -46,11 +46,10 @@ stretch goals (TypeScript, Socket.io). React Query was added 2026-10-08
 
 ## Production
 
-- **Frontend: Vercel Hobby**, project root `client/`, `VITE_API_URL` = the Railway address
+- **Frontend: Vercel**, project root `client/`, `VITE_API_URL` = the Railway address
   (baked in at build time — changing it needs a Vercel redeploy). `client/vercel.json` sends
-  every path to `index.html` so React Router routes survive a refresh. Jui knows Hobby is
-  for non-commercial use and Churo Bites is a real business; accepted for now — the
-  frontend is static files and can move to Netlify / Cloudflare Pages or go Pro later.
+  every path to `index.html` so React Router routes survive a refresh. The frontend is
+  static files, so it can move to another static host without code changes.
 - **Backend: Railway**, root `server/`, runs `npm start` (`node server.js`). Variables:
   `NODE_ENV=production`, `DATABASE`, `DATABASE_PASSWORD`, `JWT_SECRET` (its own, not dev's),
   `JWT_EXPIRES_IN=30d`, `CLIENT_ORIGIN` = the Vercel address; no `PORT` (Railway sets it).
@@ -137,8 +136,10 @@ No test runner is configured yet.
   installed nodemon on 2026-10-13 — nodemon's dependencies had 3 high audit warnings)
 - `npm start` — plain `node server.js`; what Railway runs (`engines.node` is `24.x`)
 
-No lint, build, or automated test runner is configured yet. `server/scripts/` is gitignored
-and holds the one-off seed scripts, run with `node` from `server/`: `seedAccount.js <name>
+No lint, build, or automated test runner is configured yet. `server/config.env.example`
+lists every variable (copy it to `config.env`). `server/scripts/` (in git since 2026-10-19,
+when the repo went public — the scripts hold no secrets, they read the env file) holds the
+one-off seed scripts, run with `node` from `server/`: `seedAccount.js <name>
 <email>` (asks for the password twice, hidden, 12+ characters — never on the command line)
 and `seedStock.js`. Both read the env file named in `ENV_FILE` (default `config.env`;
 `ENV_FILE=config.prod.env` for production — `server/config.*.env` is gitignored), print
