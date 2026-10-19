@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this project is
 
 **Churo Bites Operations Dashboard** — an internal order-management and inventory-tracking
-tool for Churo Bites, a small churro business Jui co-runs with a partner (orders are
+tool for Churo Bites, a small churro business Jui co-runs with their partner, Impact (orders are
 currently taken over LINE). It's also a portfolio/internship piece for Jui, a university
 student learning Node.js aiming for a Junior full-stack role.
 
