@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const dotenv = require('dotenv');
+const useDnsServers = require('../utils/dnsServers');
 
 // ENV_FILE picks the env file in server/ (default config.env), so the same
 // script can seed production: ENV_FILE=config.prod.env node scripts/…
@@ -15,6 +16,7 @@ function loadEnv() {
     process.exit(1);
   }
   dotenv.config({ path: fullPath, quiet: true });
+  useDnsServers();
   return file;
 }
 
