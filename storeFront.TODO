@@ -5,24 +5,26 @@ Storefront (customer QR ordering) — plan from docs/storefront-design/ (REQUIRE
     ✔ Decisions: reuse the User accounts + protect (no Staff model, no requireStaff, no /api/staff/login); routes under /api/storefront (public) and /api/staff (protect); frontend inside client/ (React.lazy for customer routes); staff log in at the existing /login (no /staff/login page); real Classic prices (= churo-ops BASE_PRICES); server builds the PromptPay QR; no added satang; ship with one PR per step straight into main @done(26-11-08)
 
 Open questions (ask Jui before the step that needs them):
-    ☐ Classic variants in MenuItem: one MenuItem per flavor with S / M variants, or one "Classic Churros" item with flavor × size variants? (the staff switch turns a whole flavor off, S and M together — DESIGN §4.7)
+    ✔ Classic variants in MenuItem → one MenuItem = one menu row (Jui 11-8-26): each Classic flavor / Hug flavor / topping is its own item, isAvailable on the item (one switch = one row = one field), variants only { name, price } @done(26-11-08)
+    ✔ Phone number rule → 9–10 digits starting with 0, landlines too (Jui 11-8-26); dashes / spaces stripped before the check @done(26-11-08)
     ☐ Cart: where it lives (React state / context) and whether it survives a page reload (localStorage) — the first real client-only state in the app
     ☐ Classic size picker: its own route or a sheet over /order? (README lists it as "/order → choose size")
     ☐ How staff get to /staff from the dashboard (AppShell's nav has 4 items) and back
-    ☐ Phone number rule for customers (10 digits starting with 0?)
     ☐ Name of the env variable for the account name shown on the payment page (PROMPTPAY_NAME?)
 
 Day 1 — Backend:
-    ☐ 1. One small branch + PR per step, merged straight into main (= deploy; decided 11-8-26, CLAUDE.md "How it ships"): store closed by default hides unfinished work; backup before PRs with new models; tell Impact the app may restart often; back to the timing rule if the shop takes orders again
-    ☐ 2. Models
-        ☐ MenuItem: name, category ('classic' | 'churro-hug' | 'topping'), variants [{ name, price, isAvailable }], sortOrder
-        ☐ StorefrontOrder: customerName, customerPhone, items [{ menuItemId, name, variantName, unitPrice, qty, separateToppings (Classic only, default false) }], totalPrice, status (pending_payment | cooking | ready | picked_up | cancelled), queueNumber, confirmedBy (ref User), confirmedAt, readyAt, pickedUpAt, timestamps
-        ☐ StoreSetting: one document { _id: 'storefront', isOpen (default false), updatedBy (ref User) }, timestamps
-        ☐ Counter: { _id: 'queue-YYYY-MM-DD' (Thai date), seq } for the daily queue number
+    ✔ 1. One small branch + PR per step, merged straight into main (= deploy; decided 11-8-26, CLAUDE.md "How it ships"): store closed by default hides unfinished work; backup before PRs with new models; tell Impact the app may restart often; back to the timing rule if the shop takes orders again — PR #20 (docs + DNS_SERVERS) merged; this step on feat/storefront-models @done(26-11-08)
+    ✔ 2. Models (branch feat/storefront-models; nothing requires them yet, so no effect on the running app) @done(26-11-08)
+        ✔ constants/storefront.js: MENU_CATEGORIES, ORDER_STATUSES (shared with the controllers later) @done(26-11-08)
+        ✔ MenuItem: name (unique — the seed matches on it), category, isAvailable (default true, the sold-out switch), variants [{ name, price ≥ 0 }] (≥ 1, names unique within the item; Classic S / M, Hug and toppings one "Regular"), sortOrder; no soft delete (no page deletes menu items) @done(26-11-08)
+        ✔ StorefrontOrder: items 1–30 lines [{ menuItem ref, snapshot of category / name / variantName / unitPrice (a later price or name change can't rewrite placed orders; no populate needed), qty integer 1–20, separateToppings (only when category is classic) }], customerName (≤ 40), customerPhone (digits only via setter, /^0\d{8,9}$/, select: false like User.password so only .select('+customerPhone') sees it), totalPrice (must equal Σ unitPrice × qty), status (default pending_payment), queueNumber, confirmedBy (ref User), confirmedAt, readyAt, pickedUpAt, timestamps; index { status, createdAt } for the staff tabs @done(26-11-08)
+        ✔ StoreSetting: _id 'storefront', isOpen (default false), updatedBy (ref User), timestamps; getStore() treats a missing document as closed (and doesn't create one) @done(26-11-08)
+        ✔ Counter: { _id: 'queue-YYYY-MM-DD', seq }; nextQueueNumber(now) = one findOneAndUpdate $inc + upsert on the Thai date (Intl, Asia/Bangkok) — atomic, starts at 1 each day with no scheduled job @done(26-11-08)
+        ✔ Tested on the dev DB (throwaway script, "ZZ" data, removed): 33/33 — valid saves; empty / duplicate variants, bad category, negative price, duplicate name (E11000) refused; "081-234-5678" → 0812345678, "02 123 4567" → 021234567, "12345" / "+66812345678" / missing refused; separateToppings on a topping, qty 0 / 21 / 1.5, wrong total, no items, 31 lines, 41-char name, unknown status refused; findById and its JSON have no phone, select('+customerPhone') does; status_1_createdAt_1 index built; two simultaneous nextQueueNumber → 1 and 2, then 3; getStore() → closed without writing; old collections' counts unchanged, new ones empty. Day rollover tested without the DB (Atlas refused a second connection, TLS alert): 16:59 UTC → queue-2026-11-08, 17:00 / 17:30 UTC → queue-2026-11-09 @done(26-11-08)
     ☐ 3. Seed script scripts/seedMenu.js — MenuItem + StoreSetting only (store starts closed), ENV_FILE + y/N via scriptEnv.js, never deleteMany / dropDatabase on the old models
     ☐ 4. Public API /api/storefront (no protect)
-        ☐ GET /menu → { isOpen, items } (no menu when closed; sold-out variants marked)
-        ☐ POST /orders → 403 when closed; prices and totalPrice from the DB only; refuse unknown / sold-out variants, empty cart, bad qty, separateToppings on non-Classic; validate name + phone
+        ☐ GET /menu → { isOpen, items } (no menu when closed; sold-out items marked)
+        ☐ POST /orders → 403 when closed; prices and totalPrice from the DB only; refuse unknown items / variants, sold-out items, empty cart, bad qty, separateToppings on non-Classic; validate name + phone
         ☐ GET /orders/:id → status, queue number, items, total — never the phone number; works when the store is closed
     ☐ 5. PromptPay QR: install promptpay-qr + qrcode; PROMPTPAY_ID + account name in config.env / config.env.example; GET /orders/:id returns a PNG data URL while pending_payment
     ☐ 6. Staff API /api/staff (protect on every route)
@@ -30,7 +32,7 @@ Day 1 — Backend:
         ☐ GET /orders?status=pending_payment|cooking|ready (with phone), pending oldest first, cooking by queue number
         ☐ PATCH /orders/:id/confirm → cooking + queue number (Counter $inc) + confirmedBy / confirmedAt — status in the update filter so two phones can't confirm the same order twice
         ☐ PATCH /orders/:id/ready, /pickup, /cancel — same "only from the right status" filter
-        ☐ PATCH /menu/:itemId/variants/:variantId → { isAvailable }
+        ☐ PATCH /menu/:itemId → { isAvailable } (not /variants/:variantId as in the docs — availability is on the item, 11-8-26)
     ☐ 7. Rate limit POST /api/storefront/orders (express-rate-limit, keyed on X-Real-IP in production like login)
     ☐ 8. Test against the dev DB with throwaway scripts ("ZZ …" data, removed afterwards): closed store 403, price tampering ignored, queue numbers per day, double confirm refused, phone never in the public API
 
