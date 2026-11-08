@@ -305,7 +305,9 @@ never mint a JWT.
 ## Domain model
 
 Six Mongoose models in `server/models/`: `User`, `Round`, `Order`, `StockItem`,
-`RestockLog`, `Expense` (file names are camelCase, e.g. `stockItemModel.js`). History: an
+`RestockLog`, `Expense` (file names are camelCase, e.g. `stockItemModel.js`), plus four
+storefront models (`MenuItem`, `StorefrontOrder`, `StoreSetting`, `Counter`) described
+under "Storefront". History: an
 early `FinishedStock`/`PackagingStock` split became one `Stock` schema, which in turn became
 the user-defined `StockItem`; a churro-only `ProductionLog` became `RestockLog`. There's no
 ingredient-level stock tracking — that was in an earlier design, dropped once it came out
@@ -573,6 +575,43 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   and the account name shown on the page (DESIGN §5) are env variables: the ID is
   readable from any QR, but the repo is public, so the number stays out of git. Both must
   go into `config.env.example` and Railway before the merge.
+- **Storefront models** (built 2026-11-08, `storeFront.TODO` step 2). They sit next to the
+  six churo-ops models but share no collections with them. The shared enums
+  (`MENU_CATEGORIES`, `ORDER_STATUSES`) live in `server/constants/storefront.js`.
+  - **`MenuItem`**: **one document = one row on the customer menu** (Jui): each Classic
+    flavor, each Churro Hug flavor and each topping, so 11 items. `isAvailable` (the
+    sold-out switch) is on the item, so one switch = one row = one field, and the database
+    can't hold a state the screens can't show, like "S sold out, M on sale". This is why
+    the switch API is `PATCH /api/staff/menu/:itemId`, not the docs'
+    `/variants/:variantId`.
+    - `variants: [{ name, price }]`: at least one, names unique within the item. Classic
+      has `S` / `M`; Hug and toppings have one `Regular`, whose name the pages don't show.
+    - `name` is unique, so the seed can match on it. `sortOrder` orders items within their
+      category.
+    - No soft delete: there's no page that deletes menu items.
+  - **`StorefrontOrder`**: a separate collection from `Order`.
+    - Each line is `menuItem` ref + a **snapshot** of `category` / `name` / `variantName` /
+      `unitPrice`. A later price or name change can't rewrite placed orders, and no
+      populate is needed; `category` lets the staff page colour topping lines.
+    - Each line has `qty` (whole number, 1–20) and `separateToppings`, which may only be
+      true on a `classic` line.
+    - Limits, because the form is public: 1–30 lines, `customerName` ≤ 40 characters.
+    - `customerPhone`: a setter keeps only digits, then it must match `/^0\d{8,9}$/`
+      (9–10 digits, landlines too — Jui). It's **`select: false`** like
+      `User.password`, so only `.select('+customerPhone')` (staff controllers) ever sees
+      it.
+    - `totalPrice` must equal Σ `unitPrice × qty` (validator), a second check behind the
+      controller's own sum.
+    - `status` defaults to `pending_payment`. `queueNumber`, `confirmedBy` (ref `User`),
+      `confirmedAt`, `readyAt` and `pickedUpAt` are set as the order moves on.
+      `timestamps` on, plus an index `{ status, createdAt }` for the staff tabs.
+  - **`StoreSetting`**: one document, `_id: 'storefront'`, with `isOpen` (default
+    `false`) and `updatedBy`. `getStore()` treats a missing document as closed and doesn't
+    create one.
+  - **`Counter`**: `{ _id: 'queue-YYYY-MM-DD', seq }`. `nextQueueNumber(now)` is one
+    `findOneAndUpdate` with `$inc` + upsert, keyed on the **Thai** date (`Intl`,
+    `Asia/Bangkok`; Railway runs in UTC). It's atomic across both phones and starts at 1
+    each day with no scheduled job.
 - The public `POST` for orders is open to anyone. `express-rate-limit` is already installed,
   and in production it must key on `X-Real-IP` like the login limiter.
 
