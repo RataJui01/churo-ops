@@ -30,12 +30,12 @@ const variantSchema = new mongoose.Schema(
 // Prices live here, not in the client: the server works out every order's
 // total from these (REQUIREMENTS §7).
 const menuItemSchema = new mongoose.Schema({
-  // Unique so the seed script can be run again safely (it matches on name)
+  // What the menu row shows under its section heading: "Plain", "นมข้น".
+  // Unique per category, not overall (index below).
   name: {
     type: String,
     trim: true,
     required: [true, 'Please name this menu item'],
-    unique: true,
   },
   category: {
     type: String,
@@ -74,6 +74,16 @@ const menuItemSchema = new mongoose.Schema({
     default: 0,
   },
 });
+
+// Classic and Churro Hug both have a "Plain", "Choco Pops" and "Choco Berry",
+// so a name is only unique within its category. The cart and staff pages
+// show "Classic · Plain" by putting the category's label in front (every order
+// line keeps its category). The seed script matches on this pair, which is
+// what makes running it again safe.
+// Replaced a unique index on name alone (2026-11-08): Mongoose never drops an
+// index, so the old name_1 was dropped from the dev database by hand;
+// production never had it.
+menuItemSchema.index({ category: 1, name: 1 }, { unique: true });
 
 const MenuItem = mongoose.model('MenuItem', menuItemSchema);
 module.exports = MenuItem;

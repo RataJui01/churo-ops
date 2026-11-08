@@ -147,9 +147,24 @@ and does nothing when the variable is unset (as on Railway). `server/scripts/` (
 when the repo went public — the scripts hold no secrets, they read the env file) holds the
 one-off seed scripts, run with `node` from `server/`: `seedAccount.js <name>
 <email>` (asks for the password twice, hidden, 12+ characters — never on the command line)
-and `seedStock.js`. Both read the env file named in `ENV_FILE` (default `config.env`;
+and `seedStock.js`, plus `seedMenu.js` for the storefront (2026-11-08):
+- It writes the 12 menu items and the closed store setting. **Running it again is safe and
+  is how prices change**, since there's no menu-editing page; change `client/src/constants/
+  prices.js` too.
+- What a re-run does:
+  - creates missing items;
+  - brings `variants` / `sortOrder` back in line and prints each change;
+  - **never touches `isAvailable`** (the staff's sold-out switch) and never deletes: items
+    not in its list are only reported;
+  - creates the store setting closed **only if it doesn't exist**, with hand-set
+    timestamps, so a re-run neither closes an open store nor changes its "Opened at"
+    time.
+
+All three read the env file named in `ENV_FILE` (default `config.env`;
 `ENV_FILE=config.prod.env` for production — `server/config.*.env` is gitignored), print
 which database they're about to write to and need a "y" (shared `scripts/scriptEnv.js`).
+On a machine that needs `DNS_SERVERS`, the env file has to have it too: `config.prod.env`
+didn't on 2026-11-08, so it was passed on the command line.
 There's no sign-up page on purpose: accounts are only made with this script.
 `backupDb.js` (2026-10-14, read-only, no y/N) saves every collection as canonical EJSON
 (keeps ObjectId / Date types) plus `_meta.json` (counts, indexes) to
@@ -592,7 +607,13 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
     - `variants: [{ name, price }]`: at least one, names unique within the item. Classic
       has `S` / `M`; Hug, Bites and toppings have one `Regular`, whose name the pages
       don't show.
-    - `name` is unique, so the seed can match on it. `sortOrder` orders items within their
+    - `name` is what the menu row shows under its section heading ("Plain", "นมข้น";
+      English except นมข้น — Jui). It's unique **per category**: index
+      `{ category, name }`, since Classic and Hug share flavor names. The cart and staff
+      pages show "Classic · Plain (M)" / "Churro Hug · Choco Pops" by putting a category
+      label in front, as the design does. Bites and toppings show just their name. It
+      replaced a unique index on `name` alone (2026-11-08): `name_1` was dropped from dev
+      by hand, and production never had it. `sortOrder` orders items within their
       category.
     - No soft delete: there's no page that deletes menu items.
   - **`StorefrontOrder`**: a separate collection from `Order`.
