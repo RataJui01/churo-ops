@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Churo Bites — ร้านปิดอยู่</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;family=Kanit:wght@500;600;700&amp;family=IBM+Plex+Sans+Thai:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A85419;text-decoration:none}a:hover{color:#8A4515}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #FFF2EB; color: #2B2118; font-family: 'Poppins', 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;">
+
+  <header style="padding: 24px 16px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+    <div style="font-family: 'Poppins', 'Kanit', sans-serif; font-size: 24px; line-height: 32px; font-weight: 700;">Churo Bites</div>
+    <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #FFDCDC; color: #B91C1C; font-size: 12px; line-height: 16px; font-weight: 600;">
+      <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="#B91C1C"></circle></svg>
+      ปิดรับออเดอร์
+    </span>
+  </header>
+
+  <main style="flex: 1; padding: 24px 16px 48px; display: flex; flex-direction: column; justify-content: center; gap: 16px;">
+    <section role="status" style="background: #FFFFFF; border-radius: 10px; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; box-shadow: 0 1px 2px rgba(43,33,24,0.06), 0 1px 3px rgba(43,33,24,0.08);">
+      <span style="width: 64px; height: 64px; border-radius: 50%; background: #FFE8CD; color: #A85419; display: flex; align-items: center; justify-content: center;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l1.5-5h15L21 10"></path><path d="M4 10v10h16V10"></path><path d="M3 10h18"></path><path d="M10 20v-5h4v5"></path></svg>
+      </span>
+      <h1 style="margin: 0; font-family: 'Poppins', 'Kanit', sans-serif; font-size: 22px; line-height: 30px; font-weight: 600;">ตอนนี้ร้านปิดรับออเดอร์</h1>
+      <div style="font-size: 15px; line-height: 22px; color: #5C5245;">ขอบคุณที่แวะมานะครับ<br>กลับมาสแกนอีกครั้งตอนร้านเปิด</div>
+    </section>
+    <div style="font-size: 12px; line-height: 16px; color: #5C5245; text-align: center;">มีออเดอร์ค้างอยู่? เปิดลิงก์สถานะเดิมเพื่อดูได้ตามปกติ</div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

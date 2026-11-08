@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Churo Bites — รับสินค้าแล้ว</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;family=Kanit:wght@500;600;700&amp;family=IBM+Plex+Sans+Thai:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A85419;text-decoration:none}a:hover{color:#8A4515}
+</style>
+</helmet>
+<div style="width: 390px; min-height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #FFF2EB; color: #2B2118; font-family: 'Poppins', 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;">
+
+  <header style="padding: 20px 16px 12px; display: flex; align-items: center; justify-content: space-between;">
+    <div style="font-family: 'Poppins', 'Kanit', sans-serif; font-size: 18px; line-height: 26px; font-weight: 700;">Churo Bites</div>
+    <div style="font-size: 12px; line-height: 16px; color: #5C5245;">ออเดอร์ของ มิ้นท์</div>
+  </header>
+
+  <main style="flex: 1; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px;">
+    <section role="status" style="background: #FFFFFF; border-radius: 10px; padding: 32px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; box-shadow: 0 1px 2px rgba(43,33,24,0.06), 0 1px 3px rgba(43,33,24,0.08);">
+      <span style="width: 56px; height: 56px; border-radius: 50%; background: #DCFCE7; color: #15803D; display: flex; align-items: center; justify-content: center;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8h12l-1 12H7z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>
+      </span>
+      <div style="font-family: 'Poppins', 'Kanit', sans-serif; font-size: 22px; line-height: 30px; font-weight: 600;">รับสินค้าแล้ว</div>
+      <div style="font-size: 14px; line-height: 20px; color: #5C5245;">คิว 12 · ฿134 · รับเมื่อ 18:58</div>
+      <div style="font-size: 15px; line-height: 22px; color: #2B2118;">ขอบคุณที่อุดหนุน Churo Bites นะครับ</div>
+    </section>
+
+    <a href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 10px; background: #A85419; color: #FFFFFF; font-size: 16px; line-height: 24px; font-weight: 600;">สั่งเพิ่ม</a>
+    <div style="font-size: 12px; line-height: 16px; color: #5C5245; text-align: center;">ถ้ายังไม่ได้รับของ แจ้งพนักงานที่หน้าร้านได้เลย</div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

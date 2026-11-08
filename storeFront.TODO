@@ -1,0 +1,68 @@
+Storefront (customer QR ordering) — plan from docs/storefront-design/ (REQUIREMENTS §9) + Jui's decisions in CLAUDE.md "Storefront"
+
+11-8-26:
+    ✔ Read docs/storefront-design/ and add a "Storefront" section to CLAUDE.md (reading order, where the docs don't match the repo) @done(26-11-08)
+    ✔ Decisions: reuse the User accounts + protect (no Staff model, no requireStaff, no /api/staff/login); routes under /api/storefront (public) and /api/staff (protect); frontend inside client/ (React.lazy for customer routes); staff log in at the existing /login (no /staff/login page); real Classic prices (= churo-ops BASE_PRICES); server builds the PromptPay QR; no added satang; ship with one PR per step straight into main @done(26-11-08)
+
+Open questions (ask Jui before the step that needs them):
+    ☐ Classic variants in MenuItem: one MenuItem per flavor with S / M variants, or one "Classic Churros" item with flavor × size variants? (the staff switch turns a whole flavor off, S and M together — DESIGN §4.7)
+    ☐ Cart: where it lives (React state / context) and whether it survives a page reload (localStorage) — the first real client-only state in the app
+    ☐ Classic size picker: its own route or a sheet over /order? (README lists it as "/order → choose size")
+    ☐ How staff get to /staff from the dashboard (AppShell's nav has 4 items) and back
+    ☐ Phone number rule for customers (10 digits starting with 0?)
+    ☐ Name of the env variable for the account name shown on the payment page (PROMPTPAY_NAME?)
+
+Day 1 — Backend:
+    ☐ 1. One small branch + PR per step, merged straight into main (= deploy; decided 11-8-26, CLAUDE.md "How it ships"): store closed by default hides unfinished work; backup before PRs with new models; tell Impact the app may restart often; back to the timing rule if the shop takes orders again
+    ☐ 2. Models
+        ☐ MenuItem: name, category ('classic' | 'churro-hug' | 'topping'), variants [{ name, price, isAvailable }], sortOrder
+        ☐ StorefrontOrder: customerName, customerPhone, items [{ menuItemId, name, variantName, unitPrice, qty, separateToppings (Classic only, default false) }], totalPrice, status (pending_payment | cooking | ready | picked_up | cancelled), queueNumber, confirmedBy (ref User), confirmedAt, readyAt, pickedUpAt, timestamps
+        ☐ StoreSetting: one document { _id: 'storefront', isOpen (default false), updatedBy (ref User) }, timestamps
+        ☐ Counter: { _id: 'queue-YYYY-MM-DD' (Thai date), seq } for the daily queue number
+    ☐ 3. Seed script scripts/seedMenu.js — MenuItem + StoreSetting only (store starts closed), ENV_FILE + y/N via scriptEnv.js, never deleteMany / dropDatabase on the old models
+    ☐ 4. Public API /api/storefront (no protect)
+        ☐ GET /menu → { isOpen, items } (no menu when closed; sold-out variants marked)
+        ☐ POST /orders → 403 when closed; prices and totalPrice from the DB only; refuse unknown / sold-out variants, empty cart, bad qty, separateToppings on non-Classic; validate name + phone
+        ☐ GET /orders/:id → status, queue number, items, total — never the phone number; works when the store is closed
+    ☐ 5. PromptPay QR: install promptpay-qr + qrcode; PROMPTPAY_ID + account name in config.env / config.env.example; GET /orders/:id returns a PNG data URL while pending_payment
+    ☐ 6. Staff API /api/staff (protect on every route)
+        ☐ GET / PATCH /store → { isOpen }, updatedBy from req.user
+        ☐ GET /orders?status=pending_payment|cooking|ready (with phone), pending oldest first, cooking by queue number
+        ☐ PATCH /orders/:id/confirm → cooking + queue number (Counter $inc) + confirmedBy / confirmedAt — status in the update filter so two phones can't confirm the same order twice
+        ☐ PATCH /orders/:id/ready, /pickup, /cancel — same "only from the right status" filter
+        ☐ PATCH /menu/:itemId/variants/:variantId → { isAvailable }
+    ☐ 7. Rate limit POST /api/storefront/orders (express-rate-limit, keyed on X-Real-IP in production like login)
+    ☐ 8. Test against the dev DB with throwaway scripts ("ZZ …" data, removed afterwards): closed store 403, price tampering ignored, queue numbers per day, double confirm refused, phone never in the public API
+
+Day 1 — Staff pages:
+    ☐ 9. queries.js: storefront keys + fetch functions + a 5 s polled preset
+    ☐ 10. /staff: header ("updated every 5 s · name", Store / Menu button), SegmentedTabs with counts, StaffOrderCard, SeparateToppingsBadge, PhoneLink
+        ☐ Awaiting payment tab: amount + name large, waiting time (orange after 5 min), "phone ••• 1234", Cancel + Confirm payment
+        ☐ Cooking tab: blue queue box, name, confirmed x min ago, Ready button
+        ☐ Ready for pickup tab: green queue box, orange after 10 min, Picked up button
+        ☐ Empty state per tab (not designed — DESIGN §6)
+    ☐ 11. /staff/menu: store switch on top (closed state not designed — danger colours, DESIGN §4.7), one switch per flavor / Hug / topping
+    ☐ 12. Playwright check of the staff pages (Jui logs in)
+
+Day 2 — Customer pages:
+    ☐ 13. Public routes loaded with React.lazy; a public fetch that sends no token and isn't caught by apiFetch's 401 → /login
+    ☐ 14. Thai fonts: load Kanit + IBM Plex Sans Thai (DESIGN §1) if index.css doesn't yet
+    ☐ 15. /order: store closed screen (3.8); menu with Churro Hug / Classic / toppings, AddButton → QtyStepper, sold-out rows, sticky "View cart" bar
+    ☐ 16. Classic size picker: S / M (no default), on top / separate cup, qty, disabled "Choose a size first"
+    ☐ 17. /cart: one row per item, remove, "+ Add more", name + phone form (16px inputs), total, Confirm → POST → /order/:id; 403 → closed screen
+    ☐ 18. /order/:id: poll 5 s; pending_payment (QR as <img>, Save QR image, how to pay, role="status"), cooking, ready, picked_up, cancelled (not designed — layout of 07 + danger text); StatusStepper; "Reconnecting…" bar when a poll fails
+    ☐ 19. npm run lint + npm run build; Playwright run of the whole customer flow on a 390px viewport
+
+Deploy + go live:
+    ☐ 20. Back up production (backupDb.js) — new models
+    ☐ 21. Set PromptPay variables in Railway before the merge
+    ☐ 22. Seed the menu + StoreSetting into production (writes production — Jui's OK first)
+    ☐ 23. Last merge = opening: switch the store on and link /staff from the dashboard; know the rollback (Vercel / Railway → previous deployment)
+    ☐ 24. Real test on 2–3 phones: closed → scan shows no menu → open → order → real payment (cheapest item) → confirm → ready → picked up
+    ☐ 25. Print the QR code for the stall (points to <vercel address>/order)
+
+Docs:
+    ☐ 26. CLAUDE.md: what got built, decisions from the open questions
+    ☐ 27. Update the design artifact to match what got built (Jui's job)
+
+Cut in this order if time runs out (REQUIREMENTS §9): rate limit → Cancel button → UI polish
