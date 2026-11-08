@@ -56,6 +56,8 @@ this file and read `docs/storefront-design/` before working on it.
 - **Backend: Railway**, root `server/`, runs `npm start` (`node server.js`). Variables:
   `NODE_ENV=production`, `DATABASE`, `DATABASE_PASSWORD`, `JWT_SECRET` (its own, not dev's),
   `JWT_EXPIRES_IN=30d`, `CLIENT_ORIGIN` = the Vercel address; no `PORT` (Railway sets it).
+  Storefront (2026-11-09): `PROMPTPAY_ID` / `PROMPTPAY_NAME` must be set **before the
+  store is opened**. Without them the server still runs, but payment pages have no QR.
   `config.env` isn't in git, so Railway's variables are the only source there.
 - **Database: `churo-ops-prod`** on its own Atlas project / free cluster (dev's `churo-ops`
   is a different project), a database user with readWrite on that database only; Network
@@ -582,18 +584,35 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   auto stock deduction for storefront orders (out of scope), `totalPrice` computed on the
   server (unlike churo-ops' `Order`), and the customer status API never returns the phone
   number.
-- **PromptPay QR (Jui, 2026-11-08):** the **server** builds it. `promptpay-qr` turns
-  `PROMPTPAY_ID` + the order's server-computed `totalPrice` into the payload, and
-  `qrcode.toDataURL` turns that into a PNG that `GET /api/storefront/orders/:id` returns
-  while the order is `pending_payment`. So the amount always comes from the DB, and the
-  number never ends up in the frontend bundle. The client shows it as an `<img>`, not a
-  canvas or SVG, so a long press can save it (customers can't scan their own screen; that's
-  why the design has a "Save QR image" button). The QR never talks to a bank, so the app
-  can't know a payment arrived: staff confirm by hand. **No added satang** to make amounts
-  unique: staff match amount + name, oldest first, as the design shows. `PROMPTPAY_ID`
-  and the account name shown on the page (DESIGN §5) are env variables: the ID is
-  readable from any QR, but the repo is public, so the number stays out of git. Both must
-  go into `config.env.example` and Railway before the merge.
+- **PromptPay QR** (decided 2026-11-08, built 2026-11-09 in `server/utils/promptPay.js`):
+  the **server** builds it, so the amount always comes from the DB and the number never
+  ends up in the frontend bundle.
+  - **Library:** `promptparse` (`generate.anyId`) builds the payload and `qrcode@1.5`
+    (`toDataURL`, 480 px) draws the PNG. This is **not** the docs' `promptpay-qr` (Jui,
+    2026-11-09): that one has been unmaintained since 2022 and pulls in `qrcode@0.9`, which
+    depends on any version of `colors`, the package its author sabotaged in 2022.
+    `promptparse` is maintained, MIT, has no dependencies, and also parses / checks CRCs,
+    which the tests use.
+  - **Response:** `GET /api/storefront/orders/:id` adds `payment: { qr, accountName,
+    amount }` **only while `pending_payment`**: once paid or cancelled there's nothing to
+    scan. A fresh QR is drawn per poll, which takes a few ms, so there's no cache.
+    `createOrder` doesn't build one; the page goes to the status page and gets it from
+    there.
+  - **Variables:**
+    - `PROMPTPAY_ID`: a mobile number (10 digits → `MSISDN`) or a national / tax ID
+      (13 → `NATID`); dashes are fine.
+    - `PROMPTPAY_NAME`: printed under the QR, so customers can compare it with their bank
+      app. Leaving it unset means no name line.
+    - The ID is readable from any QR, but the repo is public, so it stays out of git.
+  - **A missing or malformed ID doesn't stop the server** (unlike `CLIENT_ORIGIN`): a
+    variable forgotten on Railway would otherwise take the whole dashboard down. It logs
+    an error and returns `payment: null`, and the page tells the customer to ask the staff.
+  - The client shows the QR as an `<img>`, not a canvas or SVG, so a long press can save it.
+    Customers can't scan their own screen; that's why the design has a "Save QR image"
+    button.
+  - The QR never talks to a bank, so the app can't know a payment arrived: staff confirm
+    by hand. **No added satang** to make amounts unique: staff match amount + name, oldest
+    first, as the design shows.
 - **Storefront models** (built 2026-11-08, `storeFront.TODO` step 2). They sit next to the
   six churo-ops models but share no collections with them. The shared enums
   (`MENU_CATEGORIES` in menu-section order `churro-hug, classic, bites, topping`;
