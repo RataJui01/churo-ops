@@ -7,6 +7,7 @@ Storefront (customer QR ordering) — plan from docs/storefront-design/ (REQUIRE
 Open questions (ask Jui before the step that needs them):
     ✔ Classic variants in MenuItem → one MenuItem = one menu row (Jui 11-8-26): each Classic flavor / Hug flavor / topping is its own item, isAvailable on the item (one switch = one row = one field), variants only { name, price } @done(26-11-08)
     ✔ Phone number rule → 9–10 digits starting with 0, landlines too (Jui 11-8-26); dashes / spaces stripped before the check @done(26-11-08)
+    ✔ Strawberry Nutella Bites ฿129 added to the menu (Jui 11-8-26, forgotten in the design): own section "bites" after Classic (menu order Hug → Classic → Bites → toppings), one variant "Regular", separate cup allowed → it opens a choice screen like Classic's without the size step. The design files have neither the section nor that screen — tell Jui when building them @done(26-11-08)
     ☐ Cart: where it lives (React state / context) and whether it survives a page reload (localStorage) — the first real client-only state in the app
     ☐ Classic size picker: its own route or a sheet over /order? (README lists it as "/order → choose size")
     ☐ How staff get to /staff from the dashboard (AppShell's nav has 4 items) and back
@@ -21,7 +22,8 @@ Day 1 — Backend:
         ✔ StoreSetting: _id 'storefront', isOpen (default false), updatedBy (ref User), timestamps; getStore() treats a missing document as closed (and doesn't create one) @done(26-11-08)
         ✔ Counter: { _id: 'queue-YYYY-MM-DD', seq }; nextQueueNumber(now) = one findOneAndUpdate $inc + upsert on the Thai date (Intl, Asia/Bangkok) — atomic, starts at 1 each day with no scheduled job @done(26-11-08)
         ✔ Tested on the dev DB (throwaway script, "ZZ" data, removed): 33/33 — valid saves; empty / duplicate variants, bad category, negative price, duplicate name (E11000) refused; "081-234-5678" → 0812345678, "02 123 4567" → 021234567, "12345" / "+66812345678" / missing refused; separateToppings on a topping, qty 0 / 21 / 1.5, wrong total, no items, 31 lines, 41-char name, unknown status refused; findById and its JSON have no phone, select('+customerPhone') does; status_1_createdAt_1 index built; two simultaneous nextQueueNumber → 1 and 2, then 3; getStore() → closed without writing; old collections' counts unchanged, new ones empty. Day rollover tested without the DB (Atlas refused a second connection, TLS alert): 16:59 UTC → queue-2026-11-08, 17:00 / 17:30 UTC → queue-2026-11-09 @done(26-11-08)
-    ☐ 3. Seed script scripts/seedMenu.js — MenuItem + StoreSetting only (store starts closed), ENV_FILE + y/N via scriptEnv.js, never deleteMany / dropDatabase on the old models
+    ✔ 2b. Bites in the models (branch feat/storefront-bites): MENU_CATEGORIES gains 'bites' (and is now in menu order), new SEPARATE_TOPPING_CATEGORIES ['classic', 'bites'] used by the separateToppings validator, category error message built from the list. Tested with validate() (no DB needed): bites item saves; unknown category refused with all 4 listed; Bites and Classic lines may have a separate cup, Hug and topping lines may not @done(26-11-08)
+    ☐ 3. Seed script scripts/seedMenu.js — 12 items (4 Classic, 3 Hug, Bites, 4 toppings) — MenuItem + StoreSetting only (store starts closed), ENV_FILE + y/N via scriptEnv.js, never deleteMany / dropDatabase on the old models
     ☐ 4. Public API /api/storefront (no protect)
         ☐ GET /menu → { isOpen, items } (no menu when closed; sold-out items marked)
         ☐ POST /orders → 403 when closed; prices and totalPrice from the DB only; refuse unknown items / variants, sold-out items, empty cart, bad qty, separateToppings on non-Classic; validate name + phone
@@ -49,8 +51,8 @@ Day 1 — Staff pages:
 Day 2 — Customer pages:
     ☐ 13. Public routes loaded with React.lazy; a public fetch that sends no token and isn't caught by apiFetch's 401 → /login
     ☐ 14. Thai fonts: load Kanit + IBM Plex Sans Thai (DESIGN §1) if index.css doesn't yet
-    ☐ 15. /order: store closed screen (3.8); menu with Churro Hug / Classic / toppings, AddButton → QtyStepper, sold-out rows, sticky "View cart" bar
-    ☐ 16. Classic size picker: S / M (no default), on top / separate cup, qty, disabled "Choose a size first"
+    ☐ 15. /order: store closed screen (3.8); menu with Churro Hug / Classic / Bites / toppings, AddButton → QtyStepper, sold-out rows, sticky "View cart" bar
+    ☐ 16. Choice screen: Classic = S / M (no default) + on top / separate cup + qty, disabled "Choose a size first"; Bites = on top / separate cup + qty only (not designed — ask Jui)
     ☐ 17. /cart: one row per item, remove, "+ Add more", name + phone form (16px inputs), total, Confirm → POST → /order/:id; 403 → closed screen
     ☐ 18. /order/:id: poll 5 s; pending_payment (QR as <img>, Save QR image, how to pay, role="status"), cooking, ready, picked_up, cancelled (not designed — layout of 07 + danger text); StatusStepper; "Reconnecting…" bar when a poll fails
     ☐ 19. npm run lint + npm run build; Playwright run of the whole customer flow on a 390px viewport

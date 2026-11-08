@@ -551,14 +551,17 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   dashboard.
 - The menu is different from churo-ops: Classic (Plain / Choco Pops / Choco Berry /
   Signature, S/M, on top or separate cup), Churro Hug (3 flavours, one size), toppings ฿10
-  as their own line items, including condensed milk (new). It's a new `MenuItem`
+  as their own line items, including condensed milk (new). It also has **Strawberry Nutella
+  Bites ฿129** (Jui, 2026-11-08; not in the design files). Bites has its own `bites`
+  section after Classic, one size, and can be on top or in a separate cup, so tapping it
+  opens a choice screen like Classic's, without the size step. It's a new `MenuItem`
   collection with server-side prices. Don't change churo-ops' flavour / add-on enums or
   `prices.js` to fit it. Real Classic prices (Jui, 2026-11-08; the design's ฿35/฿55 are
   placeholders): S: Plain 59, Choco Pops 69, Choco Berry 89, Signature 79; M: Plain 99,
   Choco Pops 119, Choco Berry 149, Signature 129. They equal churo-ops' `BASE_PRICES`
   (`plain`, `chocolate`, `strawberry`, `signature`), so a price change means editing both
   `prices.js` and the `MenuItem` seed (REQUIREMENTS §8). Churro Hug: Plain 59, Choco Pops
-  69, Choco Berry 79; toppings ฿10.
+  69, Choco Berry 79; Bites 129 (= `BASE_PRICES.strawberry_nutella_bite`); toppings ฿10.
 - Spec values that differ from churo-ops on purpose: polling **every 5 s** (not 7), no
   auto stock deduction for storefront orders (out of scope), `totalPrice` computed on the
   server (unlike churo-ops' `Order`), and the customer status API never returns the phone
@@ -577,15 +580,18 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   go into `config.env.example` and Railway before the merge.
 - **Storefront models** (built 2026-11-08, `storeFront.TODO` step 2). They sit next to the
   six churo-ops models but share no collections with them. The shared enums
-  (`MENU_CATEGORIES`, `ORDER_STATUSES`) live in `server/constants/storefront.js`.
+  (`MENU_CATEGORIES` in menu-section order `churro-hug, classic, bites, topping`;
+  `SEPARATE_TOPPING_CATEGORIES`; `ORDER_STATUSES`) live in
+  `server/constants/storefront.js`.
   - **`MenuItem`**: **one document = one row on the customer menu** (Jui): each Classic
-    flavor, each Churro Hug flavor and each topping, so 11 items. `isAvailable` (the
+    flavor, each Churro Hug flavor, Bites and each topping, so 12 items. `isAvailable` (the
     sold-out switch) is on the item, so one switch = one row = one field, and the database
     can't hold a state the screens can't show, like "S sold out, M on sale". This is why
     the switch API is `PATCH /api/staff/menu/:itemId`, not the docs'
     `/variants/:variantId`.
     - `variants: [{ name, price }]`: at least one, names unique within the item. Classic
-      has `S` / `M`; Hug and toppings have one `Regular`, whose name the pages don't show.
+      has `S` / `M`; Hug, Bites and toppings have one `Regular`, whose name the pages
+      don't show.
     - `name` is unique, so the seed can match on it. `sortOrder` orders items within their
       category.
     - No soft delete: there's no page that deletes menu items.
@@ -594,7 +600,7 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
       `unitPrice`. A later price or name change can't rewrite placed orders, and no
       populate is needed; `category` lets the staff page colour topping lines.
     - Each line has `qty` (whole number, 1–20) and `separateToppings`, which may only be
-      true on a `classic` line.
+      true on a `classic` or `bites` line (`SEPARATE_TOPPING_CATEGORIES`).
     - Limits, because the form is public: 1–30 lines, `customerName` ≤ 40 characters.
     - `customerPhone`: a setter keeps only digits, then it must match `/^0\d{8,9}$/`
       (9–10 digits, landlines too — Jui). It's **`select: false`** like
