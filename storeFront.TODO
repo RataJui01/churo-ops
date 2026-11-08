@@ -39,7 +39,9 @@ Day 1 — Backend:
         ✔ utils/promptPay.js paymentQr(amount) → { qr (PNG data URL, 480 px), accountName, amount } or null; PROMPTPAY_ID digits only, 10 = MSISDN, 13 = NATID; PROMPTPAY_NAME (Jui 11-9-26) optional; missing / malformed ID logs and returns null instead of stopping the server (a forgotten Railway variable mustn't take the dashboard down) @done(26-11-09)
         ✔ GET /api/storefront/orders/:id adds payment only while pending_payment (nothing to scan once paid / cancelled); POST doesn't build one; config.env.example documents both variables @done(26-11-09)
         ✔ Tested with FAKE ids: util 14/14 — PNG 480 px; payload parses back with a valid CRC, tag 29/01 = 0066812345678, amount 54 = 267.00, currency 764, country TH, dynamic (01 = 12); a tampered amount fails the CRC; the image encodes exactly that payload; 13 digits → NATID; no name → null; no ID / 7 digits → null + logged. HTTP with a fake ID 8/8 (POST has no payment; GET pending has qr / amount 208 / name; no phone; cooking → no payment; menu fine) and without an ID 7/7 (payment: null, server and other routes fine, error logged). "ZZ" orders removed, the dev store left open as Jui had it, Jui's own "Jui test" order untouched @done(26-11-09)
-        ☐ Real scan: Jui puts the real PROMPTPAY_ID / PROMPTPAY_NAME in config.env, scans a generated QR with a bank app — check name + amount only, don't pay
+        ✔ Switched to the shop's K SHOP QR (Jui 11-9-26: Churo Bites receives through K SHOP). Its printed QR decodes to Thai QR with no amount: PromptPay bill payment (tag 30, K SHOP biller + shop ref KB000002367061), card tags, name CHURO.BITES. A ฿1 copy (tag 01 → 12, tag 54 → 1.00, new CRC) was scanned and PAID for real by Jui — money and K SHOP notification arrived @done(26-11-09)
+        ✔ Code: PROMPTPAY_MERCHANT_QR = that QR text; paymentPayload fills in each order's amount the same way; PROMPTPAY_ID only when the merchant QR isn't set; a set-but-broken merchant QR (bad CRC / no tag 30) logs and returns null — never a silent fallback to a possibly different account. Tests: merchant 15/15 (valid CRC, 01 = 12, amount, every other tag identical, PROMPTPAY_ID ignored, bad / non-QR → null, blank → falls back, neither → null); the code's ฿1 payload is identical to the paid QR; mobile tests still 14/14; HTTP with the merchant QR 10/10 (served PNG decodes to the K SHOP QR with amount 208.00 and a valid CRC) @done(26-11-09)
+        ☐ Jui adds PROMPTPAY_MERCHANT_QR to server/config.env (dev) and, before opening, to Railway
     ☐ 6. Staff API /api/staff (protect on every route)
         ☐ GET / PATCH /store → { isOpen }, updatedBy from req.user
         ☐ GET /orders?status=pending_payment|cooking|ready (with phone), pending oldest first, cooking by queue number
@@ -70,7 +72,7 @@ Day 2 — Customer pages:
 
 Deploy + go live:
     ☐ 20. Back up production (backupDb.js) — new models
-    ☐ 21. Set PROMPTPAY_ID / PROMPTPAY_NAME in Railway before opening the store (merging without them is safe — no crash, just no QR)
+    ☐ 21. Set PROMPTPAY_MERCHANT_QR / PROMPTPAY_NAME in Railway before opening the store (merging without them is safe — no crash, just no QR)
     ☐ 22. Seed the menu + StoreSetting into production (writes production — Jui's OK first): cd server && ENV_FILE=config.prod.env node scripts/seedMenu.js (add DNS_SERVERS=8.8.8.8,1.1.1.1 in front if config.prod.env still lacks it)
     ☐ 23. Last merge = opening: switch the store on and link /staff from the dashboard; know the rollback (Vercel / Railway → previous deployment)
     ☐ 24. Real test on 2–3 phones: closed → scan shows no menu → open → order → real payment (cheapest item) → confirm → ready → picked up

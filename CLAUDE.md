@@ -56,8 +56,9 @@ this file and read `docs/storefront-design/` before working on it.
 - **Backend: Railway**, root `server/`, runs `npm start` (`node server.js`). Variables:
   `NODE_ENV=production`, `DATABASE`, `DATABASE_PASSWORD`, `JWT_SECRET` (its own, not dev's),
   `JWT_EXPIRES_IN=30d`, `CLIENT_ORIGIN` = the Vercel address; no `PORT` (Railway sets it).
-  Storefront (2026-11-09): `PROMPTPAY_ID` / `PROMPTPAY_NAME` must be set **before the
-  store is opened**. Without them the server still runs, but payment pages have no QR.
+  Storefront (2026-11-09): `PROMPTPAY_MERCHANT_QR` (the shop's K SHOP QR text) and
+  `PROMPTPAY_NAME` must be set **before the store is opened**. Without them the server
+  still runs, but payment pages have no QR.
   `config.env` isn't in git, so Railway's variables are the only source there.
 - **Database: `churo-ops-prod`** on its own Atlas project / free cluster (dev's `churo-ops`
   is a different project), a database user with readWrite on that database only; Network
@@ -587,8 +588,23 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
 - **PromptPay QR** (decided 2026-11-08, built 2026-11-09 in `server/utils/promptPay.js`):
   the **server** builds it, so the amount always comes from the DB and the number never
   ends up in the frontend bundle.
-  - **Library:** `promptparse` (`generate.anyId`) builds the payload and `qrcode@1.5`
-    (`toDataURL`, 480 px) draws the PNG. This is **not** the docs' `promptpay-qr` (Jui,
+  - **Churo Bites uses its K SHOP merchant QR** (Jui, 2026-11-09).
+    - **What it is:** the shop's printed K SHOP QR has **no amount**. Decoded, it's
+      Thai QR / EMVCo with PromptPay bill payment (tag 30: K SHOP biller + the shop's
+      reference `KB000002367061`), card tags (02 / 04 / 15 / 51) and the name
+      `CHURO.BITES`.
+    - **How each order's QR is made:** a copy of that text with tag 01 → `12` (single use)
+      and tag 54 → the amount, plus a **new CRC**; every other tag is untouched.
+    - **Verified:** Jui paid a real ฿1 one on 2026-11-09, and it arrived in K SHOP. The
+      code produces that ฿1 QR character for character.
+    - **Matching payments:** every order carries the same shop reference, so staff still
+      match payments by amount + name + time.
+    - **Fallback:** `PROMPTPAY_ID` (plain PromptPay mobile / national ID via
+      `generate.anyId`) is only used when `PROMPTPAY_MERCHANT_QR` isn't set. A merchant
+      QR that's set but broken (bad CRC / no tag 30) is an error, **never** a silent
+      fallback, because the ID could be a different account.
+  - **Library:** `promptparse` builds / edits the payload (`parse`, `encode`, `tag`,
+    `withCrcTag`, `generate.anyId`) and `qrcode@1.5` (`toDataURL`, 480 px) draws the PNG. This is **not** the docs' `promptpay-qr` (Jui,
     2026-11-09): that one has been unmaintained since 2022 and pulls in `qrcode@0.9`, which
     depends on any version of `colors`, the package its author sabotaged in 2022.
     `promptparse` is maintained, MIT, has no dependencies, and also parses / checks CRCs,
@@ -599,12 +615,15 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
     `createOrder` doesn't build one; the page goes to the status page and gets it from
     there.
   - **Variables:**
-    - `PROMPTPAY_ID`: a mobile number (10 digits → `MSISDN`) or a national / tax ID
-      (13 → `NATID`); dashes are fine.
+    - `PROMPTPAY_MERCHANT_QR`: the K SHOP QR's text, starting `000201`. Decode it once from
+      the QR image.
+    - `PROMPTPAY_ID` (fallback): a mobile number (10 digits → `MSISDN`) or a national /
+      tax ID (13 → `NATID`); dashes are fine.
     - `PROMPTPAY_NAME`: printed under the QR, so customers can compare it with their bank
       app. Leaving it unset means no name line.
-    - The ID is readable from any QR, but the repo is public, so it stays out of git.
-  - **A missing or malformed ID doesn't stop the server** (unlike `CLIENT_ORIGIN`): a
+    - None of these is secret (anyone can decode a QR, and the K SHOP one is printed at the
+      stall), but the repo is public and they're the shop's, so they stay out of git.
+  - **Missing or malformed setup doesn't stop the server** (unlike `CLIENT_ORIGIN`): a
     variable forgotten on Railway would otherwise take the whole dashboard down. It logs
     an error and returns `payment: null`, and the page tells the customer to ask the staff.
   - The client shows the QR as an `<img>`, not a canvas or SVG, so a long press can save it.
