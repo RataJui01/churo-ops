@@ -22,6 +22,8 @@
     "mongodb": "^7.5.0",
     "mongoose": "^9.9.3",
     "morgan": "^1.11.0",
+    "promptparse": "^1.7.0",
+    "qrcode": "^1.5.4",
     "validator": "^13.15.35"
   },
   "engines": {

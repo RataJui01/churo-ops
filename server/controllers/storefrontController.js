@@ -4,6 +4,7 @@ const StorefrontOrder = require('../models/storefrontOrderModel');
 const StoreSetting = require('../models/storeSettingModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const { paymentQr } = require('../utils/promptPay');
 const { MENU_CATEGORIES } = require('../constants/storefront');
 
 // The public storefront API: what customers' phones call, with no login
@@ -176,14 +177,23 @@ exports.createOrder = catchAsync(async (req, res, next) => {
 // The status page polls this. Works while the store is closed, so an order
 // placed before closing can still be followed. The id is the order's
 // unguessable ObjectId, and nothing private is returned (REQUIREMENTS §7).
+// While the order waits for payment it also carries `payment` — the PromptPay
+// QR for its total (null if PromptPay isn't set up). Only then: once paid or
+// cancelled there must be nothing left to scan. A new QR is drawn on every
+// poll (a few ms) — no cache needed at this volume.
 exports.getOrder = catchAsync(async (req, res, next) => {
   const order = await StorefrontOrder.findById(req.params.id);
   if (!order) {
     return next(new AppError('No order found with that ID', 404));
   }
 
+  const publicOrder = toPublicOrder(order);
+  if (order.status === 'pending_payment') {
+    publicOrder.payment = await paymentQr(order.totalPrice);
+  }
+
   res.status(200).json({
     status: 'success',
-    data: { order: toPublicOrder(order) },
+    data: { order: publicOrder },
   });
 });
