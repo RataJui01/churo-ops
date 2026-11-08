@@ -44,6 +44,9 @@ stretch goals (TypeScript, Socket.io). React Query was added 2026-10-08
 
 **Deployed 2026-10-14** (`todo.TODO` 10-13-26, PR #15) — see "Production" below.
 
+**New work since 2026-11-08: the customer storefront.** See "Storefront" near the end of
+this file and read `docs/storefront-design/` before working on it.
+
 ## Production
 
 - **Frontend: Vercel**, project root `client/`, `VITE_API_URL` = the Railway address
@@ -137,7 +140,10 @@ No test runner is configured yet.
 - `npm start` — plain `node server.js`; what Railway runs (`engines.node` is `24.x`)
 
 No lint, build, or automated test runner is configured yet. `server/config.env.example`
-lists every variable (copy it to `config.env`). `server/scripts/` (in git since 2026-10-19,
+lists every variable (copy it to `config.env`). Optional `DNS_SERVERS` (local only; e.g.
+`8.8.8.8,1.1.1.1`): fixes `querySrv ECONNREFUSED` on machines where Node's DNS falls back
+to 127.0.0.1. `utils/dnsServers.js` applies it in `server.js` and `scripts/scriptEnv.js`,
+and does nothing when the variable is unset (as on Railway). `server/scripts/` (in git since 2026-10-19,
 when the repo went public — the scripts hold no secrets, they read the env file) holds the
 one-off seed scripts, run with `node` from `server/`: `seedAccount.js <name>
 <email>` (asks for the password twice, hidden, 12+ characters — never on the command line)
@@ -480,6 +486,116 @@ that churros are bought pre-made with flavor applied only at sale time.
   locally so nobody is stuck offline) and `endSession()` (remove the token, full
   `location.replace('/login')`), which `apiFetch` uses on any 401. The dev `JWT_SECRET` was
   replaced with 512 random bits on 2026-10-12; production has its own (see Production).
+
+## Storefront (customer ordering — in progress, started 2026-11-08)
+
+A second app on the same backend: customers scan a QR at the stall, order and pay by
+PromptPay themselves, and follow their order's status; staff confirm payment, mark it ready
+and picked up, and open/close the store. **Before building or changing anything for the
+storefront, read the design in `docs/storefront-design/`** (written in Thai):
+
+1. `README.md`: what's in the folder, plus the **route → screen file** table (links inside
+   the `.dc.html` files still use the old names in its right-hand column).
+2. `DESIGN.md`: the spec for every screen, the shared components (`Card`, `QtyStepper`,
+   `ChoiceTile`, `StatusStepper`, `StaffOrderCard`…), what each status colour means, the
+   placeholders to replace (§5) and what hasn't been designed yet (§6). §0 explains how to read
+   `.dc.html` (`{{ }}`, `<sc-for>`, `<sc-if>`; values in `renderVals()`). They're
+   canvas-only, like `client/screens/`: read them for colours/spacing/copy, rebuild as
+   real components.
+3. `REQUIREMENTS.md`: flow, scope (in / out), Mongoose models, API, security, §8 "don't
+   break churo-ops", and the 2-day plan.
+4. The matching `screens/customer/0N-….dc.html` or `screens/staff/0N-….dc.html`.
+
+Which wins: a screen file beats `DESIGN.md` if they disagree (DESIGN.md says so; tell Jui).
+The folder is a one-off export of https://claude.ai/artifact/Dhrznc3JcveHsfHeJqnyQK and
+does not update itself. If Jui says the design changed, read the artifact (same way as the
+churo-ops design above) and ask whether to re-export. `tokens.json` is the same token set as
+`client/design-system/tokens.json` (only line endings differ), already in `@theme` in
+`client/src/index.css`, so use those existing utilities (`bg-surface-raised`,
+`text-ink-muted`…) and never hard-code a new hex.
+
+**Where the docs don't match this repo**: they were written against an older idea of
+churo-ops. Follow the code, and ask Jui where a decision is needed:
+- They say React + TypeScript and a `tailwind.config`. The project is plain JS/JSX with
+  Tailwind v4 `@theme` (DESIGN.md §1 itself says to move to `@theme` for v4).
+- REQUIREMENTS §3 lists the churo-ops models as Stock / SignatureRatio / …; the real ones
+  are the six under Domain model.
+- **Decided (Jui, 2026-11-08): no `Staff` model, no `requireStaff`.** Staff use the
+  existing `User` accounts (Jui / Impact: email login with rate limit, 30-day JWT,
+  `tokenVersion` log-out) and `authController.protect`. So don't build
+  `POST /api/staff/login`: logging in stays `POST /api/v1/users/login`. Refs the docs
+  point at `Staff` (`confirmedBy`, `updatedBy`) point at `User`, and the `Staff` /
+  seed-account steps of the 2-day plan are already done. `protect` is added per route, not
+  with `app.use`, so public storefront routes just leave it off.
+- **Decided (Jui, 2026-11-08): route prefixes as in the docs.** Customer routes go under
+  `/api/storefront` (public), staff routes under `/api/staff` (each one behind `protect`),
+  not under `/api/v1/`.
+- **Decided (Jui, 2026-11-08): the storefront frontend lives inside `client/`.** New
+  routes in the same Vite app and Vercel project, not a separate app. Why: staff use the
+  same accounts, so one app means one token and one login for the dashboard and `/staff`.
+  It also reuses tokens / `api.js` / React Query, and needs no new `CLIENT_ORIGIN` or Vercel
+  setup. Big systems (Shopify, Toast) split their storefront and admin because of scale,
+  teams and branding; a two-person shop has none of those problems. Splitting later stays
+  easy because customer pages only call `/api/storefront`. Consequences:
+  - Load the customer routes with `React.lazy` so a customer on mobile data doesn't
+    download the dashboard.
+  - Customer `/order`, `/order/:id` vs the dashboard's `/orders`, `/orders/:id`: only an
+    "s" apart, so check every link.
+  - Customer pages are public: they call the API without a token and must not be caught by
+    the 401 → `/login` redirect in `apiFetch`.
+- **Decided (Jui, 2026-11-08): no `/staff/login` page.** Staff log in at the existing
+  `/login` (email, not the design's "username"), so `screens/staff/01-login.dc.html` is
+  not built. `/staff` and `/staff/menu` are logged-in pages like the rest of the
+  dashboard.
+- The menu is different from churo-ops: Classic (Plain / Choco Pops / Choco Berry /
+  Signature, S/M, on top or separate cup), Churro Hug (3 flavours, one size), toppings ฿10
+  as their own line items, including condensed milk (new). It's a new `MenuItem`
+  collection with server-side prices. Don't change churo-ops' flavour / add-on enums or
+  `prices.js` to fit it. Real Classic prices (Jui, 2026-11-08; the design's ฿35/฿55 are
+  placeholders): S: Plain 59, Choco Pops 69, Choco Berry 89, Signature 79; M: Plain 99,
+  Choco Pops 119, Choco Berry 149, Signature 129. They equal churo-ops' `BASE_PRICES`
+  (`plain`, `chocolate`, `strawberry`, `signature`), so a price change means editing both
+  `prices.js` and the `MenuItem` seed (REQUIREMENTS §8). Churro Hug: Plain 59, Choco Pops
+  69, Choco Berry 79; toppings ฿10.
+- Spec values that differ from churo-ops on purpose: polling **every 5 s** (not 7), no
+  auto stock deduction for storefront orders (out of scope), `totalPrice` computed on the
+  server (unlike churo-ops' `Order`), and the customer status API never returns the phone
+  number.
+- **PromptPay QR (Jui, 2026-11-08):** the **server** builds it. `promptpay-qr` turns
+  `PROMPTPAY_ID` + the order's server-computed `totalPrice` into the payload, and
+  `qrcode.toDataURL` turns that into a PNG that `GET /api/storefront/orders/:id` returns
+  while the order is `pending_payment`. So the amount always comes from the DB, and the
+  number never ends up in the frontend bundle. The client shows it as an `<img>`, not a
+  canvas or SVG, so a long press can save it (customers can't scan their own screen; that's
+  why the design has a "Save QR image" button). The QR never talks to a bank, so the app
+  can't know a payment arrived: staff confirm by hand. **No added satang** to make amounts
+  unique: staff match amount + name, oldest first, as the design shows. `PROMPTPAY_ID`
+  and the account name shown on the page (DESIGN §5) are env variables: the ID is
+  readable from any QR, but the repo is public, so the number stays out of git. Both must
+  go into `config.env.example` and Railway before the merge.
+- The public `POST` for orders is open to anyone. `express-rate-limit` is already installed,
+  and in production it must key on `X-Real-IP` like the login limiter.
+
+**How it ships (Jui, 2026-11-08): one small branch + PR per step, merged straight into
+`main`.** That's continuous deployment; there's no long-lived `feat/storefront` branch.
+It's safe while the work is unfinished because:
+- the new models and routes have no callers in the existing app;
+- `StoreSetting.isOpen` starts `false`, so it acts as the feature flag: anyone who finds
+  `/order` only sees the store-closed screen;
+- `/staff` gets no link from the dashboard until it's finished.
+
+Chosen because the shop isn't taking orders right now, so a Railway restart on each merge
+costs nothing, and each step gets tested on real phones against production while the change
+is still small. **If the shop starts taking orders again before the storefront is done,
+go back to the timing rule (checklist item 6)** or switch to a `feat/storefront` branch
+merged at milestones. Each merge still follows the whole "Merging to `main` is deploying"
+checklist:
+- back up production before a PR that adds a model;
+- set new variables (e.g. `PROMPTPAY_ID`) in Railway before the PR that needs them;
+- get Jui's OK before seeding production;
+- tell Impact the app may restart often.
+
+Jui makes the UX/flow calls (explain the why).
 
 ## Formatting
 
