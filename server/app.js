@@ -15,6 +15,7 @@ const stockItemRouter = require('./routes/stockItemRoutes');
 const restockRouter = require('./routes/restockRoutes');
 const expenseRouter = require('./routes/expenseRoutes');
 const financeRouter = require('./routes/financeRoutes');
+const storefrontRouter = require('./routes/storefrontRoutes');
 // const signatureRatioRouter = require('./routes/signatureRatioRoutes');
 
 // Standard security headers (nosniff, no X-Powered-By, …)
@@ -54,6 +55,8 @@ app.use('/api/v1/restocks', restockRouter);
 app.use('/api/v1/expenses', expenseRouter);
 app.use('/api/v1/finances', financeRouter);
 // app.use('/api/v1/signatureRatio', signatureRatioRouter);
+// Customer storefront — public, no login (see the router)
+app.use('/api/storefront', storefrontRouter);
 
 app.all('/{*splat}', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));

@@ -291,7 +291,8 @@ never mint a JWT.
 - `server/config.env` holds environment variables (Mongo Atlas connection string, port,
   etc.), loaded via `dotenv.config({ path: ... })`. It's covered by `.gitignore` (alongside
   bare `.env`).
-- Every route except `POST /users/login` is behind `authController.protect`. Handlers are
+- Every route except `POST /users/login` and the public storefront routes
+  (`/api/storefront/*`, see Storefront) is behind `authController.protect`. Handlers are
   wrapped in `catchAsync` and report expected failures with `AppError` (404 / 400).
 - Hardening (2026-10-12, from the security review): `helmet()`; CORS only for
   `CLIENT_ORIGIN` (comma-separated, required — `app.js` throws at start without it, since
@@ -639,8 +640,43 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
     `findOneAndUpdate` with `$inc` + upsert, keyed on the **Thai** date (`Intl`,
     `Asia/Bangkok`; Railway runs in UTC). It's atomic across both phones and starts at 1
     each day with no scheduled job.
+- **Public API** (built 2026-11-09, `storeFront.TODO` step 4):
+  `controllers/storefrontController.js` + `routes/storefrontRoutes.js`, mounted at
+  `/api/storefront` with **no `protect`**.
+  - Error messages are in English like the rest of the API (Jui). The customer pages check
+    the form themselves and show Thai text, and react to **status codes**: 403 = store
+    closed, 409 = sold out.
+  - `GET /menu`: when closed, `{ isOpen: false }` and no menu. When open,
+    `{ isOpen: true, items }`, one list in menu order (`MENU_CATEGORIES`, then
+    `sortOrder`). It **includes** sold-out items (`isAvailable: false`), because the
+    design shows them.
+  - `POST /orders`: body `{ customerName, customerPhone, items: [{ menuItemId,
+    variantName?, qty, separateToppings? }] }`, and nothing else is read.
+    - The store must be open, otherwise 403 (checked on the server).
+    - Items must be 1–30 lines, and each `menuItemId` must pass
+      `mongoose.isObjectIdOrHexString` (not `isValidObjectId`, which accepts any
+      12-character string); otherwise 400 "Line N: …".
+    - All items are loaded in one `$in` query. Unknown id → 400.
+    - `variantName` may be left out only when the item has a single variant; Classic must
+      send S / M (400).
+    - Name, category, variant and price are **copied from the database**.
+      `separateToppings` must be exactly `=== true` (Mongoose would read "yes" as true).
+      `totalPrice` is summed from the cast lines, and the model validates it again.
+      `status` / `queueNumber` / `confirmedBy` / prices from the body are ignored.
+    - If any item is sold out: **409** `{ data: { soldOut: [ids] } }`, sent by the
+      controller itself (`AppError` only carries a message), and no order is created.
+    - 201 with the public order.
+  - `GET /orders/:id`: works while the store is closed. 404 if unknown, 400 if malformed.
+  - Every order sent back goes through **`toPublicOrder`**, a whitelist (`_id, status,
+    queueNumber, customerName, items, totalPrice, createdAt, confirmedAt, readyAt,
+    pickedUpAt`). `select: false` only hides the phone from queries; a freshly created
+    document still has it. A whitelist also keeps fields added later private by default.
+    `confirmedBy` is left out as internal.
 - The public `POST` for orders is open to anyone. `express-rate-limit` is already installed,
   and in production it must key on `X-Real-IP` like the login limiter.
+- Testing note: `npm run dev` (`node --watch`) restarted itself in the middle of an HTTP test
+  run on 2026-11-09, with no file of ours changed. API tests were run against plain
+  `node server.js` instead.
 
 **How it ships (Jui, 2026-11-08): one small branch + PR per step, merged straight into
 `main`.** That's continuous deployment; there's no long-lived `feat/storefront` branch.
