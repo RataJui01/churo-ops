@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { MENU_CATEGORIES } = require('../constants/storefront');
 
 // The variants of one menu row: S / M for a Classic flavor, a single
-// "Regular" for Churro Hug and toppings (the customer pages don't show the
+// "Regular" for Churro Hug, Bites and toppings (the customer pages don't show the
 // name when there's only one). Only names and prices — whether the row can be
 // ordered is the item's isAvailable, not per variant.
 const variantSchema = new mongoose.Schema(
@@ -22,7 +22,8 @@ const variantSchema = new mongoose.Schema(
 );
 
 // One document = one row on the customer menu (Jui, 2026-11-08): each Classic
-// flavor, each Churro Hug flavor and each topping is its own item. That way the
+// flavor, each Churro Hug flavor, Strawberry Nutella Bites and each topping is
+// its own item. That way the
 // staff's "sold out" switch (one per flavor, turning S and M off together —
 // DESIGN §4.7) is exactly one field, and the database can't hold a state the
 // screens can't show, like "S sold out but M still on sale".
@@ -41,7 +42,7 @@ const menuItemSchema = new mongoose.Schema({
     required: [true, 'Please choose a category'],
     enum: {
       values: MENU_CATEGORIES,
-      message: 'Category must be classic, churro-hug or topping',
+      message: `Category must be one of: ${MENU_CATEGORIES.join(', ')}`,
     },
   },
   // The staff's sold-out switch. No soft delete: there's no page for deleting

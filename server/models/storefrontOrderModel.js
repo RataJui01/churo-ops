@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const {
   MENU_CATEGORIES,
+  SEPARATE_TOPPING_CATEGORIES,
   ORDER_STATUSES,
 } = require('../constants/storefront');
 
@@ -46,18 +47,19 @@ const orderItemSchema = new mongoose.Schema(
         message: 'Quantity must be a whole number',
       },
     },
-    // "Dip / topping in a separate cup" — only Classic Churros offer it
-    // (Churro Hug comes with its topping on, and a topping line is the
-    // topping itself). A normal function (not an arrow) because Mongoose
-    // passes the line as `this`, like the size rule in orderModel.js.
+    // "Dip / topping in a separate cup" — only Classic Churros and Bites offer
+    // it (SEPARATE_TOPPING_CATEGORIES). A normal function (not an arrow)
+    // because Mongoose passes the line as `this`, like the size rule in
+    // orderModel.js.
     separateToppings: {
       type: Boolean,
       default: false,
       validate: {
         validator: function (value) {
-          return !value || this.category === 'classic';
+          return !value || SEPARATE_TOPPING_CATEGORIES.includes(this.category);
         },
-        message: 'Only Classic Churros can have the topping served separately',
+        message:
+          'Only Classic Churros and Bites can have the topping served separately',
       },
     },
   },
