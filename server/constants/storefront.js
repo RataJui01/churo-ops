@@ -23,8 +23,23 @@ const ORDER_STATUSES = [
   'cancelled',
 ];
 
+// Orders still being worked on — what the staff page shows, one tab each
+const ACTIVE_ORDER_STATUSES = ['pending_payment', 'cooking', 'ready'];
+
+// Menu order: sections as in MENU_CATEGORIES, then sortOrder within each.
+// Shared by the customer and staff menus so both list items the same way.
+// Sorts the array in place and returns it.
+const sortMenu = (items) => {
+  const section = (item) => MENU_CATEGORIES.indexOf(item.category);
+  return items.sort(
+    (a, b) => section(a) - section(b) || a.sortOrder - b.sortOrder,
+  );
+};
+
 module.exports = {
   MENU_CATEGORIES,
   SEPARATE_TOPPING_CATEGORIES,
   ORDER_STATUSES,
+  ACTIVE_ORDER_STATUSES,
+  sortMenu,
 };

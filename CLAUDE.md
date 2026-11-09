@@ -710,11 +710,52 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
     pickedUpAt`). `select: false` only hides the phone from queries; a freshly created
     document still has it. A whitelist also keeps fields added later private by default.
     `confirmedBy` is left out as internal.
+- **Staff API** (built 2026-11-09, `storeFront.TODO` step 6): `controllers/staffController.js`
+  + `routes/staffRoutes.js`, mounted at `/api/staff`. **Every route has `protect`**, written
+  per line like the other routers. "Who did it" (`updatedBy`, `confirmedBy`) always comes
+  from `req.user`.
+  - `GET /store` → `{ isOpen, updatedBy: { name } | null, updatedAt }` for "Opened by Jui
+    17:02". A missing document reads as closed.
+  - `PATCH /store` `{ isOpen }`: must be a boolean (400). **Opening is refused (400) when no
+    payment QR is set up** (`paymentPayload(1)` is null; Jui, 2026-11-09), because customers
+    could order but not pay. Closing always works. It's an upsert, and the automatic
+    `updatedAt` is when the switch was flipped.
+  - `GET /orders` → **every active order (`pending_payment`, `cooking`, `ready`) in one
+    request**, with phone numbers, oldest first. The tabs show all three counts at once:
+    one poll instead of three. `?status=` (one of those three, else 400) still filters. The
+    page splits orders into tabs and sorts within each (queue number, time ready).
+  - Status moves go through `moveOrder(id, fromStatus, changes)`: `findOneAndUpdate` with
+    **the expected status in the filter**, so check + write is one atomic step. If the other
+    phone already moved the order, or the button was tapped twice, nothing matches → **409**;
+    an unknown id → 404.
+    - `confirm`: `pending_payment` → `cooking` + `confirmedBy` / `confirmedAt` **first**,
+      then `Counter.nextQueueNumber()`. Claiming first means a double tap never uses up a
+      number, so the queue never skips. A crash between the two steps would leave a
+      cooking order with no number, which the page shows as "—".
+    - `ready`: `cooking` → `ready` + `readyAt`.
+    - `pickup`: `ready` → `picked_up` + `pickedUpAt`.
+    - `cancel`: **only from `pending_payment`** (Jui: a paid order is refunded outside the
+      app).
+    - **No undo for any step yet** (Jui, 2026-11-09; not in the design): a known gap.
+  - `GET /menu` → the full menu **even while closed**, so items can be switched off before
+    opening. This route isn't in the docs; the public one sends nothing while closed. Both
+    controllers sort with `sortMenu` from `constants/storefront.js`.
+  - `PATCH /menu/:itemId` `{ isAvailable }`: boolean only (400), unknown id → 404. It touches
+    only that one field; prices change via `seedMenu.js`.
 - The public `POST` for orders is open to anyone. `express-rate-limit` is already installed,
   and in production it must key on `X-Real-IP` like the login limiter.
-- Testing note: `npm run dev` (`node --watch`) restarted itself in the middle of an HTTP test
-  run on 2026-11-09, with no file of ours changed. API tests were run against plain
-  `node server.js` instead.
+- **Testing notes:**
+  - **On Windows, two servers can both listen on port 3000.** On 2026-11-09 a test hit an
+    older server Jui had running (`npm run start` from `main`) instead of the branch's. The
+    giveaway was 404s, with a stack trace pointing at `main`'s `app.js` line numbers. Run
+    test servers on another port (`PORT=3999 node server.js`) and don't stop Jui's
+    processes.
+  - `node --watch` also restarts on any file change, including a `git switch`. That likely
+    explains an earlier "restart by itself" mid-test. Use plain `node server.js` for API
+    tests.
+  - Staff controllers are tested by calling them directly with `req.user` = an account
+    loaded from the DB (no JWT is minted), plus HTTP checks that every `/api/staff` route
+    answers 401 without a token.
 
 **How it ships (Jui, 2026-11-08): one small branch + PR per step, merged straight into
 `main`.** That's continuous deployment; there's no long-lived `feat/storefront` branch.
