@@ -42,23 +42,24 @@ Day 1 — Backend:
         ✔ Switched to the shop's K SHOP QR (Jui 11-9-26: Churo Bites receives through K SHOP). Its printed QR decodes to Thai QR with no amount: PromptPay bill payment (tag 30, K SHOP biller + shop ref KB000002367061), card tags, name CHURO.BITES. A ฿1 copy (tag 01 → 12, tag 54 → 1.00, new CRC) was scanned and PAID for real by Jui — money and K SHOP notification arrived @done(26-11-09)
         ✔ Code: PROMPTPAY_MERCHANT_QR = that QR text; paymentPayload fills in each order's amount the same way; PROMPTPAY_ID only when the merchant QR isn't set; a set-but-broken merchant QR (bad CRC / no tag 30) logs and returns null — never a silent fallback to a possibly different account. Tests: merchant 15/15 (valid CRC, 01 = 12, amount, every other tag identical, PROMPTPAY_ID ignored, bad / non-QR → null, blank → falls back, neither → null); the code's ฿1 payload is identical to the paid QR; mobile tests still 14/14; HTTP with the merchant QR 10/10 (served PNG decodes to the K SHOP QR with amount 208.00 and a valid CRC) @done(26-11-09)
         ☐ Jui adds PROMPTPAY_MERCHANT_QR to server/config.env (dev) and, before opening, to Railway
-    ☐ 6. Staff API /api/staff (protect on every route)
-        ☐ GET / PATCH /store → { isOpen }, updatedBy from req.user
-        ☐ GET /orders?status=pending_payment|cooking|ready (with phone), pending oldest first, cooking by queue number
-        ☐ PATCH /orders/:id/confirm → cooking + queue number (Counter $inc) + confirmedBy / confirmedAt — status in the update filter so two phones can't confirm the same order twice
-        ☐ PATCH /orders/:id/ready, /pickup, /cancel — same "only from the right status" filter
-        ☐ PATCH /menu/:itemId → { isAvailable } (not /variants/:variantId as in the docs — availability is on the item, 11-8-26)
+    ✔ 6. Staff API /api/staff (branch feat/storefront-staff-api; staffController.js + staffRoutes.js, protect on every route, written per line) @done(26-11-09)
+        ✔ Decisions (Jui 11-9-26): opening the store is refused (400) while no payment QR is set up — closing always works; cancel only from pending_payment (paid orders are refunded outside the app); no undo for any step yet (known gap) @done(26-11-09)
+        ✔ GET /store → { isOpen, updatedBy: { name }, updatedAt } (missing = closed); PATCH /store { isOpen } boolean only, upsert, updatedBy from req.user, automatic updatedAt = when it was flipped @done(26-11-09)
+        ✔ GET /orders → every active order (pending_payment / cooking / ready) in ONE request with phones, oldest first — the tabs show all three counts, so one poll instead of three; ?status= still filters (400 otherwise); the page splits into tabs and sorts each (queue number, time ready) @done(26-11-09)
+        ✔ moveOrder(id, from, changes): findOneAndUpdate with the expected status in the filter (atomic) → 409 if the other phone already moved it / double tap, 404 unknown. confirm claims pending → cooking + confirmedBy / confirmedAt FIRST, then Counter.nextQueueNumber() — a double tap never uses up a number; ready (+ readyAt), pickup (+ pickedUpAt), cancel (pending only) @done(26-11-09)
+        ✔ GET /menu (full menu even while closed — not in the docs, needed because the public one sends nothing then); PATCH /menu/:itemId { isAvailable } boolean only, only that field (not /variants/:variantId — availability is on the item); sortMenu moved to constants/storefront.js, shared with the public menu @done(26-11-09)
+        ✔ Tested: controllers called directly with req.user = Jui loaded from the DB (no JWT minted), 36/36 — store: "yes" 400, close / open with updatedBy Jui and updatedAt moving, open with no QR 400 while closing still works; orders: GET 4 ZZ pending with phones oldest first, bad status 400; ready-while-pending / pickup-while-cooking / cancel-while-cooking 409; confirm → cooking + queue 1 + confirmedBy Jui (saved), ready, pickup; two confirms at once → one 200 + one 409 and the next order gets 3 (no skipped number); cancel pending ok, again 409; customer view shows the queue number, no QR, no phone; unknown 404, malformed 400; menu: 12 items while closed, "false" 400, switch off → customer menu sold out, variants in the body ignored, unknown 404. Store setting / today's counter / availability / counts restored exactly; "Jui test" untouched. HTTP 12/12: every /api/staff route 401 without or with a bad token, public menu 200, /api/v1/orders 401. Gotcha: Jui's own server (npm run start from main) was also on port 3000 and answered first (Windows lets both listen) — tested on PORT=3999 @done(26-11-09)
     ☐ 7. Rate limit POST /api/storefront/orders (express-rate-limit, keyed on X-Real-IP in production like login)
     ☐ 8. Test against the dev DB with throwaway scripts ("ZZ …" data, removed afterwards): closed store 403, price tampering ignored, queue numbers per day, double confirm refused, phone never in the public API
 
 Day 1 — Staff pages:
     ☐ 9. queries.js: storefront keys + fetch functions + a 5 s polled preset
-    ☐ 10. /staff: header ("updated every 5 s · name", Store / Menu button), SegmentedTabs with counts, StaffOrderCard, SeparateToppingsBadge, PhoneLink
+    ☐ 10. /staff (one GET /api/staff/orders poll every 5 s, split into tabs here; sort cooking by queueNumber (null → "—" last), ready by readyAt; K SHOP notifications DO show the payer's name (Jui 11-9-26), so the design's "amount + name" card works): header ("updated every 5 s · name", Store / Menu button), SegmentedTabs with counts, StaffOrderCard, SeparateToppingsBadge, PhoneLink
         ☐ Awaiting payment tab: amount + name large, waiting time (orange after 5 min), "phone ••• 1234", Cancel + Confirm payment
         ☐ Cooking tab: blue queue box, name, confirmed x min ago, Ready button
         ☐ Ready for pickup tab: green queue box, orange after 10 min, Picked up button
         ☐ Empty state per tab (not designed — DESIGN §6)
-    ☐ 11. /staff/menu: store switch on top (closed state not designed — danger colours, DESIGN §4.7), one switch per flavor / Hug / topping
+    ☐ 11. /staff/menu (GET /api/staff/menu, PATCH /api/staff/store — show its 400 "set up the payment QR"): store switch on top (closed state not designed — danger colours, DESIGN §4.7), one switch per flavor / Hug / topping
     ☐ 12. Playwright check of the staff pages (Jui logs in)
 
 Day 2 — Customer pages:

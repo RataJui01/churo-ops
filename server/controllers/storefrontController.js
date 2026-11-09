@@ -5,7 +5,7 @@ const StoreSetting = require('../models/storeSettingModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { paymentQr } = require('../utils/promptPay');
-const { MENU_CATEGORIES } = require('../constants/storefront');
+const { sortMenu } = require('../constants/storefront');
 
 // The public storefront API: what customers' phones call, with no login
 // (routes/storefrontRoutes.js). Error messages are in English like the rest of
@@ -51,12 +51,8 @@ exports.getMenu = catchAsync(async (req, res, next) => {
     return res.status(200).json({ status: 'success', data: { isOpen: false } });
   }
 
-  const items = await MenuItem.find().select(
-    'category name variants isAvailable sortOrder',
-  );
-  const section = (item) => MENU_CATEGORIES.indexOf(item.category);
-  items.sort(
-    (a, b) => section(a) - section(b) || a.sortOrder - b.sortOrder,
+  const items = sortMenu(
+    await MenuItem.find().select('category name variants isAvailable sortOrder'),
   );
 
   res.status(200).json({
