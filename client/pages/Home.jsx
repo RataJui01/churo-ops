@@ -11,6 +11,7 @@ import ActiveRounds from '../src/components/ActiveRounds.jsx';
 import AppShell from '../src/components/AppShell.jsx';
 import QuickActions from '../src/components/QuickActions.jsx';
 import StockPreview from '../src/components/StockPreview.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 import { pickPreviewItems } from '../src/constants/stock.js';
 
 // Builds "Tuesday, 16 September" (en-GB alone gives no comma)
@@ -86,7 +87,7 @@ function Home() {
             </button>
           </div>
         ) : rounds === null ? (
-          <p className="text-body-small text-ink-muted">Loading rounds…</p>
+          <Spinner label="Loading rounds" />
         ) : (
           <div className="flex flex-col gap-2">
             <ActiveRounds

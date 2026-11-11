@@ -292,6 +292,12 @@ never mint a JWT.
   free-text item name (existing name = top up, new name = start tracking it) with a kg/L/pcs
   unit. The design's example items (Flour, Sugar…) are just placeholders. See the
   `StockItem` bullet under Domain model; the plan lives in `todo.TODO` (9-30-26).
+- **Loading states use `<Spinner label="…" />`** (`src/components/Spinner.jsx`, Jui 2026-11-11),
+  not "Loading…" text: a 32px brand arc on a border-coloured ring, centred with `py-12`,
+  `role="status"` + a screen-reader-only label (the old text without "…"). Reduced motion
+  slows it to 3 s a turn rather than stopping it, because a still ring looks frozen. The one
+  exception is New order's Round `<select>`: an `<option>` can only hold text. Home shows two
+  spinners (rounds and stock), since its two sections load separately.
 - Form inputs must be ≥16px font (iOS Safari zooms on focus otherwise); the mockups' 15px is a
   known bug. Primary buttons 48px/16px text vs secondary 44px/14px is intentional.
 

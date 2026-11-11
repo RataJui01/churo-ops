@@ -15,14 +15,27 @@ const LEAVE_MS = 200;
 
 // The button that moves each kind of card on, and what it says while waiting
 const ACTIONS = {
-  pending_payment: { kind: 'confirm', label: 'ยืนยันจ่าย', busy: 'กำลังยืนยัน…' },
+  pending_payment: {
+    kind: 'confirm',
+    label: 'ยืนยันจ่าย',
+    busy: 'กำลังยืนยัน…',
+  },
   cooking: { kind: 'ready', label: 'พร้อมรับ', busy: 'กำลังบันทึก…' },
   ready: { kind: 'pickup', label: 'ลูกค้ารับแล้ว', busy: 'กำลังบันทึก…' },
 };
 
 function ClockIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
     </svg>
@@ -48,7 +61,17 @@ function WaitBadge({ warn, children }) {
 function SeparateToppingsBadge() {
   return (
     <span className="mt-1 inline-flex items-center gap-1 rounded-pill bg-ink px-2.5 py-0.5 text-badge text-on-brand">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         <path d="M5 8h14l-1.5 11a2 2 0 0 1-2 1.7h-7a2 2 0 0 1-2-1.7z" />
         <path d="M4 8h16" />
       </svg>
@@ -65,7 +88,17 @@ function PhoneLink({ name, phone }) {
       aria-label={`โทรหา ${name}`}
       className="inline-flex min-h-9 items-center gap-1.5 self-start text-button-secondary text-brand hover:text-brand-hover"
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
       </svg>
       {formatPhone(phone)}
@@ -212,7 +245,10 @@ function StaffOrderCard({ order, now, onGone, onConflict }) {
                     </span>
                   )}
                 </div>
-                <PhoneLink name={order.customerName} phone={order.customerPhone} />
+                <PhoneLink
+                  name={order.customerName}
+                  phone={order.customerPhone}
+                />
               </div>
             </div>
           )}
@@ -239,7 +275,9 @@ function StaffOrderCard({ order, now, onGone, onConflict }) {
           </ul>
 
           {status === 'pending_payment' && (
-            <p className="text-label text-ink-muted">โทร {maskPhone(order.customerPhone)}</p>
+            <p className="text-label text-ink-muted">
+              โทร {maskPhone(order.customerPhone)}
+            </p>
           )}
 
           {error && (
@@ -276,7 +314,9 @@ function StaffOrderCard({ order, now, onGone, onConflict }) {
                 }}
                 className="min-h-12 flex-[2] rounded-md bg-brand text-button-primary text-on-brand hover:bg-brand-hover disabled:opacity-60"
               >
-                {busy && workingKind === action.kind ? action.busy : action.label}
+                {busy && workingKind === action.kind
+                  ? action.busy
+                  : action.label}
               </button>
             </div>
           ) : (
@@ -291,11 +331,31 @@ function StaffOrderCard({ order, now, onGone, onConflict }) {
               }`}
             >
               {status === 'cooking' ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
                   <polyline points="5 12 10 17 19 7" />
                 </svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
                   <path d="M6 8h12l-1 12H7z" />
                   <path d="M9 8V6a3 3 0 0 1 6 0v2" />
                 </svg>

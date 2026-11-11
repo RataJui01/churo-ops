@@ -14,6 +14,7 @@ import {
 import AppShell from '../src/components/AppShell.jsx';
 import SectionLabel from '../src/components/SectionLabel.jsx';
 import StockLevel from '../src/components/StockLevel.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 
 // Divider under every row but the last
 const dividerClass = 'not-last:border-b not-last:border-divider not-last:pb-2.5';
@@ -84,7 +85,7 @@ function Stock() {
             </button>
           </div>
         ) : data === null ? (
-          <p className="text-body-small text-ink-muted">Loading stock…</p>
+          <Spinner label="Loading stock" />
         ) : (
           <>
             {data.stockItems.length === 0 ? (

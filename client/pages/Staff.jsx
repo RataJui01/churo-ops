@@ -12,6 +12,7 @@ import {
 import { formatClock } from '../src/constants/storefront.js';
 import { useNow } from '../src/useNow.js';
 import StaffOrderCard from '../src/components/StaffOrderCard.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 
 // The three tabs, in order. The tab lives in the URL (?tab=cooking) so a
 // refresh, or coming back from ร้าน / เมนู, lands on the same tab (Jui,
@@ -58,7 +59,17 @@ function Dot({ color }) {
 
 function StoreIcon({ size }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M3 10l1.5-5h15L21 10" />
       <path d="M4 10v10h16V10" />
       <path d="M3 10h18" />
@@ -97,7 +108,9 @@ function StoreClosedCard({ store }) {
           <StoreIcon size={22} />
         </span>
         <div className="flex flex-col gap-0.5">
-          <h2 className="font-heading text-page-title text-danger">ร้านปิดรับออเดอร์อยู่</h2>
+          <h2 className="font-heading text-page-title text-danger">
+            ร้านปิดรับออเดอร์อยู่
+          </h2>
           <p className="text-body-small text-ink-muted">
             ลูกค้าสแกน QR จะเห็นหน้าร้านปิด สั่งไม่ได้
             {store.updatedBy &&
@@ -134,7 +147,18 @@ function StoreClosedCard({ store }) {
 function EmptyTab({ title, hint }) {
   return (
     <div className="mt-2 flex flex-col items-center gap-2 rounded-md border-[1.5px] border-dashed border-border px-4 py-10 text-center">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-ink-muted">
+      <svg
+        width="36"
+        height="36"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="text-ink-muted"
+      >
         <rect x="5" y="3" width="14" height="18" rx="2" />
         <line x1="9" y1="8" x2="15" y2="8" />
         <line x1="9" y1="12" x2="15" y2="12" />
@@ -149,7 +173,18 @@ function EmptyTab({ title, hint }) {
 function InfoNote({ children }) {
   return (
     <div className="flex items-start gap-2.5 rounded-md bg-surface-peach px-4 py-3">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-px shrink-0 text-status-pending">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="mt-px shrink-0 text-status-pending"
+      >
         <circle cx="12" cy="12" r="9" />
         <line x1="12" y1="8" x2="12" y2="13" />
         <line x1="12" y1="16" x2="12" y2="16" />
@@ -231,7 +266,16 @@ function Staff() {
             to="/staff/menu"
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md bg-surface-peach px-3.5 text-button-secondary text-ink"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
               <line x1="4" y1="7" x2="20" y2="7" />
               <line x1="4" y1="12" x2="20" y2="12" />
               <line x1="4" y1="17" x2="20" y2="17" />
@@ -253,21 +297,22 @@ function Staff() {
                 replace
                 aria-current={active ? 'page' : undefined}
                 className={`flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-pill text-body-small ${
-                  active
-                    ? 'bg-brand font-semibold text-on-brand'
-                    : 'text-ink'
+                  active ? 'bg-brand font-semibold text-on-brand' : 'text-ink'
                 }`}
               >
                 {t.label}
-                <span
-                  className={`flex h-5 min-w-5 items-center justify-center rounded-pill px-1.5 text-[11px] font-bold ${
-                    active
-                      ? 'bg-surface-raised text-brand'
-                      : 'bg-surface-apricot text-ink'
-                  }`}
-                >
-                  {byStatus[t.status].length}
-                </span>
+                {/* No count until the first load: a "0" would read as "no orders" */}
+                {orders.data && (
+                  <span
+                    className={`flex h-5 min-w-5 items-center justify-center rounded-pill px-1.5 text-[11px] font-bold ${
+                      active
+                        ? 'bg-surface-raised text-brand'
+                        : 'bg-surface-apricot text-ink'
+                    }`}
+                  >
+                    {byStatus[t.status].length}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -289,33 +334,46 @@ function Staff() {
             </button>
           </div>
         ) : !orders.data ? (
-          <p className="text-body-small text-ink-muted">กำลังโหลดออเดอร์…</p>
+          <Spinner label="กำลังโหลดออเดอร์" />
         ) : (
           <>
             {isClosed && <StoreClosedCard store={store.data} />}
 
-            {isClosed && tab.status !== 'ready' && byStatus.ready.length > 0 && (
-              <Link
-                to={{ search: '?tab=ready' }}
-                replace
-                className="flex items-center gap-3 rounded-md bg-status-done-bg px-4 py-3.5 text-ink"
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-raised font-heading text-[16px] font-bold text-status-done">
-                  {byStatus.ready.length}
-                </span>
-                <span className="flex flex-1 flex-col gap-0.5">
-                  <span className="text-body font-semibold text-status-done">
-                    ยังมีออเดอร์รอลูกค้ามารับ
+            {isClosed &&
+              tab.status !== 'ready' &&
+              byStatus.ready.length > 0 && (
+                <Link
+                  to={{ search: '?tab=ready' }}
+                  replace
+                  className="flex items-center gap-3 rounded-md bg-status-done-bg px-4 py-3.5 text-ink"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-raised font-heading text-[16px] font-bold text-status-done">
+                    {byStatus.ready.length}
                   </span>
-                  <span className="text-label text-ink">
-                    ปิดร้านแล้วยังส่งของ/กด “ลูกค้ารับแล้ว” ได้ตามปกติ
+                  <span className="flex flex-1 flex-col gap-0.5">
+                    <span className="text-body font-semibold text-status-done">
+                      ยังมีออเดอร์รอลูกค้ามารับ
+                    </span>
+                    <span className="text-label text-ink">
+                      ปิดร้านแล้วยังส่งของ/กด “ลูกค้ารับแล้ว” ได้ตามปกติ
+                    </span>
                   </span>
-                </span>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-status-done">
-                  <polyline points="9 6 15 12 9 18" />
-                </svg>
-              </Link>
-            )}
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="text-status-done"
+                  >
+                    <polyline points="9 6 15 12 9 18" />
+                  </svg>
+                </Link>
+              )}
 
             {list.length === 0 ? (
               <EmptyTab
@@ -355,12 +413,14 @@ function Staff() {
                 </ul>
                 {tab.status === 'pending_payment' && (
                   <InfoNote>
-                    ออเดอร์ที่รอเกิน 5 นาทีจะมีกรอบสีส้ม — ถ้าลูกค้าไม่ได้จ่าย กด “ยกเลิก”
+                    ออเดอร์ที่รอเกิน 5 นาทีจะมีกรอบสีส้ม — ถ้าลูกค้าไม่ได้จ่าย
+                    กด “ยกเลิก”
                   </InfoNote>
                 )}
                 {tab.status === 'ready' && (
                   <InfoNote>
-                    พร้อมเกิน 10 นาทีแล้วยังไม่มารับ จะมีกรอบสีส้ม — กดเบอร์เพื่อโทรตามได้
+                    พร้อมเกิน 10 นาทีแล้วยังไม่มารับ จะมีกรอบสีส้ม —
+                    กดเบอร์เพื่อโทรตามได้
                   </InfoNote>
                 )}
               </>

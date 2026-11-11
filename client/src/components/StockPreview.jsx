@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import SectionLabel from './SectionLabel.jsx';
 import StockLevel from './StockLevel.jsx';
+import Spinner from './Spinner.jsx';
 
 // Home's "Stock levels" card. items: the stock items to show, already picked
 // and ordered by Home (null = still loading). Rows aren't links, as in the
@@ -29,7 +30,7 @@ function StockPreview({ items, error, onRetry }) {
           </button>
         </div>
       ) : items === null ? (
-        <p className="text-body-small text-ink-muted">Loading stock…</p>
+        <Spinner label="Loading stock" />
       ) : items.length === 0 ? (
         <p className="text-body-small text-ink-muted">No stock items yet.</p>
       ) : (

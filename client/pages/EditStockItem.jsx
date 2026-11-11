@@ -17,6 +17,7 @@ import {
   stockLevel,
 } from '../src/constants/stock.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 import {
   inputClass,
   labelClass,
@@ -73,7 +74,7 @@ function EditStockItem() {
             </Link>
           </div>
         ) : (
-          <p className="text-body-small text-ink-muted">Loading item…</p>
+          <Spinner label="Loading item" />
         )}
       </SubPageShell>
     );
