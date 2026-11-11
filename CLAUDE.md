@@ -306,7 +306,8 @@ never mint a JWT.
   15 min per IP, successful ones don't count, 429 through `errorController`. In production
   the limiter keys on `X-Real-IP` (2026-10-13): Railway's edge sets it to the visitor's
   address, while the number of proxies in front of the app varies, so `req.ip` could be a
-  Railway proxy's and everyone would share one limit; development ignores the header.
+  Railway proxy's and everyone would share one limit; development ignores the header. `clientIp` / `ipKey` live in `utils/clientIp.js` (2026-11-11), shared by the login
+  and storefront-order limiters so both count visitors the same way.
 - Patterns used throughout: edits are `findById` + `set` + `save()` with a whitelist of
   editable fields (full validation, only changed paths written); counts change with atomic
   `$inc`, never read-modify-write, because two phones write at once; the record (order,
@@ -742,8 +743,19 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
     controllers sort with `sortMenu` from `constants/storefront.js`.
   - `PATCH /menu/:itemId` `{ isAvailable }`: boolean only (400), unknown id → 404. It touches
     only that one field; prices change via `seedMenu.js`.
-- The public `POST` for orders is open to anyone. `express-rate-limit` is already installed,
-  and in production it must key on `X-Real-IP` like the login limiter.
+- **Rate limit on placing orders** (built 2026-11-11, `storeFront.TODO` step 7):
+  `orderLimiter` in `routes/storefrontRoutes.js`, on `POST /api/storefront/orders` only.
+  - **10 orders per 15 minutes per IP** (Jui). A customer rarely places more than 2–3, but
+    many customers can share one IP: mobile networks put many phones behind one public
+    address (CGNAT), and so does the stall's Wi-Fi. A spammer gets at most ~40 / hour per
+    IP, which staff can cancel.
+  - `skipFailedRequests`: only orders actually created count, so a mistyped phone, a
+    closed store or a sold-out item doesn't use up a try.
+  - **429** goes through `errorController` (same JSON as other errors), and the page shows
+    its own Thai message.
+  - `GET /menu` and `GET /orders/:id` (polled every 5 s) aren't limited: they only read.
+  - It keys on the same `ipKey` as the login limiter (`utils/clientIp.js`). The count
+    lives in memory, so a Railway restart resets it.
 - **Testing notes:**
   - **On Windows, two servers can both listen on port 3000.** On 2026-11-09 a test hit an
     older server Jui had running (`npm run start` from `main`) instead of the branch's. The
