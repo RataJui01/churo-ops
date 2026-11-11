@@ -151,7 +151,7 @@ when the repo went public — the scripts hold no secrets, they read the env fil
 one-off seed scripts, run with `node` from `server/`: `seedAccount.js <name>
 <email>` (asks for the password twice, hidden, 12+ characters — never on the command line)
 and `seedStock.js`, plus `seedMenu.js` for the storefront (2026-11-08):
-- It writes the 12 menu items and the closed store setting. **Running it again is safe and
+- It writes the 11 menu items and the closed store setting. **Running it again is safe and
   is how prices change**, since there's no menu-editing page; change `client/src/constants/
   prices.js` too.
 - What a re-run does:
@@ -599,17 +599,19 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
     taps (ร้าน / เมนู → Dashboard), which keeps the tab page focused on the counter work.
 - The menu is different from churo-ops: Classic (Plain / Choco Pops / Choco Berry /
   Signature, S/M, on top or separate cup), Churro Hug (3 flavours, one size), toppings ฿10
-  as their own line items, including condensed milk (new). It also has **Strawberry Nutella
-  Bites ฿129** (Jui, 2026-11-08; not in the design files). Bites has its own `bites`
-  section after Classic, one size, and can be on top or in a separate cup, so tapping it
-  opens a choice screen like Classic's, without the size step. It's a new `MenuItem`
+  as their own line items, including condensed milk (new). **Strawberry Nutella Bites is
+  not sold on the storefront** (Jui, 2026-11-11). It was added on 2026-11-08 with its own
+  `bites` section, then removed from the categories, the seed and the dev DB when Jui
+  stopped selling it. The LINE dashboard is untouched: its `strawberry_nutella_bite`
+  flavor still covers past orders and the Bite churro / Bite box stock rules. It's a new
+  `MenuItem`
   collection with server-side prices. Don't change churo-ops' flavour / add-on enums or
   `prices.js` to fit it. Real Classic prices (Jui, 2026-11-08; the design's ฿35/฿55 are
   placeholders): S: Plain 59, Choco Pops 69, Choco Berry 89, Signature 79; M: Plain 99,
   Choco Pops 119, Choco Berry 149, Signature 129. They equal churo-ops' `BASE_PRICES`
   (`plain`, `chocolate`, `strawberry`, `signature`), so a price change means editing both
   `prices.js` and the `MenuItem` seed (REQUIREMENTS §8). Churro Hug: Plain 59, Choco Pops
-  69, Choco Berry 79; Bites 129 (= `BASE_PRICES.strawberry_nutella_bite`); toppings ฿10.
+  69, Choco Berry 79; toppings ฿10.
 - Spec values that differ from churo-ops on purpose: polling **every 5 s** (not 7), no
   auto stock deduction for storefront orders (out of scope), `totalPrice` computed on the
   server (unlike churo-ops' `Order`), and the customer status API never returns the phone
@@ -663,23 +665,23 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
     first, as the design shows.
 - **Storefront models** (built 2026-11-08, `storeFront.TODO` step 2). They sit next to the
   six churo-ops models but share no collections with them. The shared enums
-  (`MENU_CATEGORIES` in menu-section order `churro-hug, classic, bites, topping`;
+  (`MENU_CATEGORIES` in menu-section order `churro-hug, classic, topping`;
   `SEPARATE_TOPPING_CATEGORIES`; `ORDER_STATUSES`) live in
   `server/constants/storefront.js`.
   - **`MenuItem`**: **one document = one row on the customer menu** (Jui): each Classic
-    flavor, each Churro Hug flavor, Bites and each topping, so 12 items. `isAvailable` (the
+    flavor, each Churro Hug flavor and each topping, so 11 items. `isAvailable` (the
     sold-out switch) is on the item, so one switch = one row = one field, and the database
     can't hold a state the screens can't show, like "S sold out, M on sale". This is why
     the switch API is `PATCH /api/staff/menu/:itemId`, not the docs'
     `/variants/:variantId`.
     - `variants: [{ name, price }]`: at least one, names unique within the item. Classic
-      has `S` / `M`; Hug, Bites and toppings have one `Regular`, whose name the pages
+      has `S` / `M`; Hug and toppings have one `Regular`, whose name the pages
       don't show.
     - `name` is what the menu row shows under its section heading ("Plain", "นมข้น";
       English except นมข้น — Jui). It's unique **per category**: index
       `{ category, name }`, since Classic and Hug share flavor names. The cart and staff
       pages show "Classic · Plain (M)" / "Churro Hug · Choco Pops" by putting a category
-      label in front, as the design does. Bites and toppings show just their name. It
+      label in front, as the design does. Toppings show just their name. It
       replaced a unique index on `name` alone (2026-11-08): `name_1` was dropped from dev
       by hand, and production never had it. `sortOrder` orders items within their
       category.
@@ -689,7 +691,7 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
       `unitPrice`. A later price or name change can't rewrite placed orders, and no
       populate is needed; `category` lets the staff page colour topping lines.
     - Each line has `qty` (whole number, 1–20) and `separateToppings`, which may only be
-      true on a `classic` or `bites` line (`SEPARATE_TOPPING_CATEGORIES`).
+      true on a `classic` line (`SEPARATE_TOPPING_CATEGORIES`).
     - Limits, because the form is public: 1–30 lines, `customerName` ≤ 40 characters.
     - `customerPhone`: a setter keeps only digits, then it must match `/^0\d{8,9}$/`
       (9–10 digits, landlines too — Jui). It's **`select: false`** like
@@ -824,6 +826,31 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   - **`GET /api/v1/users/me`** (`authController.getMe`, `protect`) returns `{ name }` for the
     header. It asks the server rather than saving the name at login, because tokens last
     30 days and phones already logged in would have no name.
+- **Staff menu page `/staff/menu`** (built 2026-11-11, `storeFront.TODO` step 11):
+  `pages/StaffMenu.jsx` + `components/Switch.jsx` + `src/useStoreSwitch.js`. Built from the
+  artifact's StaffMenu / StaffMenuClosed boards.
+  - **Header:** a back arrow → `/staff` **on the tab it came from**. `/staff` passes
+    `state={{ tab }}` on its "ร้าน / เมนู" and "เช็กเมนูที่หมดก่อนเปิด" links; opened
+    directly, the arrow goes to the first tab. Then the title, and the **"Dashboard" button →
+    `/`**, the only way back to the dashboard (Jui).
+  - **Store card:** green (open) or red (closed) border, "เปิดโดย / ปิดโดย {name} {HH:mm}",
+    the design's note strip, and a 60×36 switch. The switch **waits for the server** (not
+    optimistic): opening can be refused (no payment QR → "ยังไม่ได้ตั้ง QR รับเงิน เปิด
+    ร้านไม่ได้"), and a switch that showed "open" and then jumped back could mislead.
+    `useStoreSwitch()` holds that rule and message; `/staff`'s closed card uses it too.
+  - **Sold-out switches**, in 3 sections (Churro Hug, Classic Churros "· ปิดรสเดียวได้ทั้ง S
+    และ M", ท็อปปิ้ง): **optimistic** (Jui). `onMutate` cancels the running poll and flips
+    the cached item; `onError` flips it back and shows "บันทึกไม่ได้ ลองอีกครั้ง" in that row;
+    `onSettled` refetches. Off rows are pink-tinted with a grey name and "หมด · ลูกค้าสั่ง
+    ไม่ได้".
+  - **`Switch`**: a real `<input type="checkbox" role="switch">` (`sr-only`, `peer`) inside
+    the row's `<label>`, so the whole ≥ 60px row is the tap target, Space toggles it, and
+    the drawn track gets a brand focus ring via `peer-focus-visible`. The knob moves with
+    `translate` (200 ms, `motion-reduce` off).
+  - **Colours outside the tokens:** the design's #8C7F72 (off track), #FFF7F7 (off row,
+    closed strip) and #F2FBF5 (open strip) aren't tokens, so the nearest token at an opacity
+    is used: `bg-ink-muted/70`, `bg-surface-pink/30` and `bg-status-done-bg/40`.
+  - Both queries are polled every 5 s, so a change on the other phone shows within 5 s.
 - **Testing notes:**
   - **On Windows, two servers can both listen on port 3000.** On 2026-11-09 a test hit an
     older server Jui had running (`npm run start` from `main`) instead of the branch's. The

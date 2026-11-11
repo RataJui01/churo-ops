@@ -12,6 +12,7 @@ import NewRound from '../pages/NewRound.jsx';
 import Orders from '../pages/Orders.jsx';
 import Restock from '../pages/Restock.jsx';
 import Staff from '../pages/Staff.jsx';
+import StaffMenu from '../pages/StaffMenu.jsx';
 import Stock from '../pages/Stock.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
@@ -35,6 +36,7 @@ function App() {
           <Route path="/finances" element={<Finances />} />
           {/* Storefront staff page — reached from inside the app only until go-live */}
           <Route path="/staff" element={<Staff />} />
+          <Route path="/staff/menu" element={<StaffMenu />} />
         </Route>
       </Routes>
     </BrowserRouter>

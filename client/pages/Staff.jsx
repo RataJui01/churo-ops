@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
-import { errorMessage, getJson } from '../src/api.js';
+import { errorMessage } from '../src/api.js';
 import {
   AFFECTED_BY,
   STOREFRONT_POLLED,
@@ -10,6 +10,7 @@ import {
   staffStoreQuery,
 } from '../src/queries.js';
 import { formatClock } from '../src/constants/storefront.js';
+import { useStoreSwitch } from '../src/useStoreSwitch.js';
 import { useNow } from '../src/useNow.js';
 import StaffOrderCard from '../src/components/StaffOrderCard.jsx';
 import Spinner from '../src/components/Spinner.jsx';
@@ -81,22 +82,8 @@ function StoreIcon({ size }) {
 // The red card at the top while the store is closed (artifact StaffClosed,
 // Jui 2026-11-11). Opening is refused by the server while the payment QR
 // isn't set up (400) — said here in Thai.
-function StoreClosedCard({ store }) {
-  const queryClient = useQueryClient();
-  const open = useMutation({
-    mutationFn: async () => {
-      await getJson('/api/staff/store', {
-        method: 'PATCH',
-        body: JSON.stringify({ isOpen: true }),
-      });
-      await refreshAfterSave(queryClient, AFFECTED_BY.store);
-    },
-  });
-  const error = open.error
-    ? open.error.status === 400
-      ? 'ยังไม่ได้ตั้ง QR รับเงิน เปิดร้านไม่ได้'
-      : errorMessage(open.error)
-    : '';
+function StoreClosedCard({ store, tab }) {
+  const { setOpen, isPending, error } = useStoreSwitch();
 
   return (
     <section
@@ -125,15 +112,16 @@ function StoreClosedCard({ store }) {
       )}
       <button
         type="button"
-        disabled={open.isPending}
-        onClick={() => open.mutate()}
+        disabled={isPending}
+        onClick={() => setOpen(true)}
         className="flex min-h-13 items-center justify-center gap-2 rounded-md bg-status-done text-button-primary text-on-brand disabled:opacity-60"
       >
         <StoreIcon size={18} />
-        {open.isPending ? 'กำลังเปิดร้าน…' : 'เปิดร้าน'}
+        {isPending ? 'กำลังเปิดร้าน…' : 'เปิดร้าน'}
       </button>
       <Link
         to="/staff/menu"
+        state={{ tab }}
         className="inline-flex min-h-11 items-center self-center text-button-secondary text-brand hover:text-brand-hover"
       >
         เช็กเมนูที่หมดก่อนเปิด
@@ -264,6 +252,7 @@ function Staff() {
           </div>
           <Link
             to="/staff/menu"
+            state={{ tab: tab.id }}
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md bg-surface-peach px-3.5 text-button-secondary text-ink"
           >
             <svg
@@ -337,7 +326,7 @@ function Staff() {
           <Spinner label="กำลังโหลดออเดอร์" />
         ) : (
           <>
-            {isClosed && <StoreClosedCard store={store.data} />}
+            {isClosed && <StoreClosedCard store={store.data} tab={tab.id} />}
 
             {isClosed &&
               tab.status !== 'ready' &&
@@ -413,14 +402,12 @@ function Staff() {
                 </ul>
                 {tab.status === 'pending_payment' && (
                   <InfoNote>
-                    ออเดอร์ที่รอเกิน 5 นาทีจะมีกรอบสีส้ม — ถ้าลูกค้าไม่ได้จ่าย
-                    กด “ยกเลิก”
+                    ออเดอร์ที่รอเกิน 5 นาทีจะมีกรอบสีส้ม — ถ้าลูกค้าไม่ได้จ่าย กด “ยกเลิก”
                   </InfoNote>
                 )}
                 {tab.status === 'ready' && (
                   <InfoNote>
-                    พร้อมเกิน 10 นาทีแล้วยังไม่มารับ จะมีกรอบสีส้ม —
-                    กดเบอร์เพื่อโทรตามได้
+                    พร้อมเกิน 10 นาทีแล้วยังไม่มารับ จะมีกรอบสีส้ม — กดเบอร์เพื่อโทรตามได้
                   </InfoNote>
                 )}
               </>
