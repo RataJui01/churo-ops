@@ -10,7 +10,7 @@ Open questions (ask Jui before the step that needs them):
     ✔ Strawberry Nutella Bites ฿129 added to the menu (Jui 11-8-26, forgotten in the design): own section "bites" after Classic (menu order Hug → Classic → Bites → toppings), one variant "Regular", separate cup allowed → it opens a choice screen like Classic's without the size step. The design files have neither the section nor that screen — tell Jui when building them @done(26-11-08)
     ☐ Cart: where it lives (React state / context) and whether it survives a page reload (localStorage) — the first real client-only state in the app
     ☐ Classic size picker: its own route or a sheet over /order? (README lists it as "/order → choose size")
-    ☐ How staff get to /staff from the dashboard (AppShell's nav has 4 items) and back
+    ✔ How staff get to /staff and back (Jui 11-11-26): in = a card on Home with the count waiting for payment (not in the dashboard design — app-only); back = only the "Dashboard" button in /staff/menu's header, as the artifact shows (two taps from the tabs). Jui also said: read storefront screens from the artifact, don't re-export the local files @done(26-11-11)
     ☐ Name of the env variable for the account name shown on the payment page (PROMPTPAY_NAME?)
 
 Day 1 — Backend:
@@ -62,7 +62,7 @@ Day 1 — Staff pages:
         ☐ Cooking tab: blue queue box, name, confirmed x min ago, Ready button
         ☐ Ready for pickup tab: green queue box, orange after 10 min, Picked up button
         ☐ Empty state per tab (not designed — DESIGN §6)
-    ☐ 11. /staff/menu (GET /api/staff/menu, PATCH /api/staff/store — show its 400 "set up the payment QR"): store switch on top (closed state not designed — danger colours, DESIGN §4.7), one switch per flavor / Hug / topping
+    ☐ 11. /staff/menu (GET /api/staff/menu, PATCH /api/staff/store — show its 400 "set up the payment QR"; header: back arrow → /staff + "Dashboard" button → / (artifact 11-11-26)): store switch on top (closed state not designed — danger colours, DESIGN §4.7), one switch per flavor / Hug / topping
     ☐ 12. Playwright check of the staff pages (Jui logs in)
 
 Day 2 — Customer pages:
@@ -78,7 +78,7 @@ Deploy + go live:
     ☐ 20. Back up production (backupDb.js) — new models
     ☐ 21. Set PROMPTPAY_MERCHANT_QR / PROMPTPAY_NAME in Railway before opening the store (merging without them is safe — no crash, just no QR)
     ☐ 22. Seed the menu + StoreSetting into production (writes production — Jui's OK first): cd server && ENV_FILE=config.prod.env node scripts/seedMenu.js (add DNS_SERVERS=8.8.8.8,1.1.1.1 in front if config.prod.env still lacks it)
-    ☐ 23. Last merge = opening: switch the store on and link /staff from the dashboard; know the rollback (Vercel / Railway → previous deployment)
+    ☐ 23. Last merge = opening: switch the store on and link /staff from the dashboard (the Home card with the "waiting for payment" count, decided 11-11-26); know the rollback (Vercel / Railway → previous deployment)
     ☐ 24. Real test on 2–3 phones: closed → scan shows no menu → open → order → real payment (cheapest item) → confirm → ready → picked up
     ☐ 25. Print the QR code for the stall (points to <vercel address>/order)
 

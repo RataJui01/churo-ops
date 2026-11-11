@@ -530,8 +530,15 @@ storefront, read the design in `docs/storefront-design/`** (written in Thai):
 
 Which wins: a screen file beats `DESIGN.md` if they disagree (DESIGN.md says so; tell Jui).
 The folder is a one-off export of https://claude.ai/artifact/Dhrznc3JcveHsfHeJqnyQK and
-does not update itself. If Jui says the design changed, read the artifact (same way as the
-churo-ops design above) and ask whether to re-export. `tokens.json` is the same token set as
+does not update itself.
+- **The artifact is the source of truth for screens** (Jui, 2026-11-11: don't re-export,
+  read the artifact). The local `screens/` files may lag behind it: for example
+  `05-store-and-menu.dc.html` lacks the Dashboard button added on 2026-11-11.
+- Before building a storefront screen, read its file in the artifact. Use the
+  claude-artifacts tools: `list_files` (slug `Dhrznc3JcveHsfHeJqnyQK`), then `read_file`
+  with **one `path` per call** (`paths` is refused for this artifact type). The files are
+  `project/<Name>.dc.html`; README's table maps them to routes. `project/canvas.json`
+  lists the boards. Compare with the local export to see what changed. `tokens.json` is the same token set as
 `client/design-system/tokens.json` (only line endings differ), already in `@theme` in
 `client/src/index.css`, so use those existing utilities (`bg-surface-raised`,
 `text-ink-muted`…) and never hard-code a new hex.
@@ -569,6 +576,15 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   `/login` (email, not the design's "username"), so `screens/staff/01-login.dc.html` is
   not built. `/staff` and `/staff/menu` are logged-in pages like the rest of the
   dashboard.
+- **Decided (Jui, 2026-11-11): moving between the dashboard and the staff pages.**
+  - **Into `/staff`:** a card on the dashboard's **Home** showing how many orders are
+    waiting for payment confirmation (e.g. "ออเดอร์หน้าร้าน · 3 รอยืนยันจ่าย"). Why: the
+    4-item nav and its sliding-pill animation stay as they are, and the count works as a
+    notification when the app opens. This card **isn't in the dashboard design artifact**:
+    it's an app-only addition, and updating the design is Jui's job.
+  - **Back to the dashboard:** only the **"Dashboard" button in `/staff/menu`'s header**,
+    as the artifact shows (Jui chose to follow the design). From the order tabs that's two
+    taps (ร้าน / เมนู → Dashboard), which keeps the tab page focused on the counter work.
 - The menu is different from churo-ops: Classic (Plain / Choco Pops / Choco Berry /
   Signature, S/M, on top or separate cup), Churro Hug (3 flavours, one size), toppings ฿10
   as their own line items, including condensed milk (new). It also has **Strawberry Nutella
