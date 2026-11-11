@@ -788,6 +788,16 @@ checklist:
 - get Jui's OK before seeding production;
 - tell Impact the app may restart often.
 
+**Merge method: squash and merge** (Jui, 2026-11-11, from PR #27 on; #20–#26 used merge
+commits). Each PR lands on `main` as one commit, so `main` reads as one line per step and a
+step can be reverted as a whole; the individual commits stay visible on the PR page. The
+repo's squash message keeps the commits' messages, `Co-Authored-By` included.
+Consequence for cleanup: after a squash the branch's own commits are not ancestors of
+`main`, so `git branch -d` refuses. First confirm the PR is merged
+(`gh pr view <n> --json state`) and that `git diff main <branch>` is empty, then
+delete with `git branch -D` and `git push origin --delete <branch>`. GitHub's
+"Automatically delete head branches" is off, so the remote branch has to be deleted too.
+
 Jui makes the UX/flow calls (explain the why).
 
 ## Formatting
