@@ -2,8 +2,8 @@
 // written, how phone numbers are shown, and how long something has waited.
 
 // The label put in front of an item's name in carts and order cards, as the
-// design writes them: "Classic · Plain (M)", "Churro Hug · Choco Pops". Bites
-// and toppings have no label — their name says it all ("นมข้น").
+// design writes them: "Classic · Plain (M)", "Churro Hug · Choco Pops".
+// Toppings have no label — their name says it all ("นมข้น").
 export const CATEGORY_LABELS = {
   classic: 'Classic',
   'churro-hug': 'Churro Hug',

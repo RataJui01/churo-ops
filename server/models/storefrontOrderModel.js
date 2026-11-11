@@ -47,8 +47,8 @@ const orderItemSchema = new mongoose.Schema(
         message: 'Quantity must be a whole number',
       },
     },
-    // "Dip / topping in a separate cup" — only Classic Churros and Bites offer
-    // it (SEPARATE_TOPPING_CATEGORIES). A normal function (not an arrow)
+    // "Dip / topping in a separate cup" — only Classic Churros offer it
+    // (SEPARATE_TOPPING_CATEGORIES). A normal function (not an arrow)
     // because Mongoose passes the line as `this`, like the size rule in
     // orderModel.js.
     separateToppings: {
@@ -58,8 +58,7 @@ const orderItemSchema = new mongoose.Schema(
         validator: function (value) {
           return !value || SEPARATE_TOPPING_CATEGORIES.includes(this.category);
         },
-        message:
-          'Only Classic Churros and Bites can have the topping served separately',
+        message: 'Only Classic Churros can have the topping served separately',
       },
     },
   },
@@ -104,10 +103,7 @@ const storefrontOrderSchema = new mongoose.Schema(
       required: [true, 'Please enter your phone number'],
       set: (value) =>
         typeof value === 'string' ? value.replace(/\D/g, '') : value,
-      match: [
-        /^0\d{8,9}$/,
-        'Phone number must be 9–10 digits starting with 0',
-      ],
+      match: [/^0\d{8,9}$/, 'Phone number must be 9–10 digits starting with 0'],
       select: false,
     },
     // Worked out by the server from the menu's prices, never sent by the
