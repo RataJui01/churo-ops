@@ -778,6 +778,46 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   - `GET /menu` and `GET /orders/:id` (polled every 5 s) aren't limited: they only read.
   - It keys on the same `ipKey` as the login limiter (`utils/clientIp.js`). The count
     lives in memory, so a Railway restart resets it.
+- **Staff page `/staff`** (built 2026-11-11, `storeFront.TODO` step 10): `pages/Staff.jsx` +
+  `components/StaffOrderCard.jsx`, a logged-in route like the dashboard (no lazy loading:
+  only staff open it). Built from the artifact's StaffOrders / StaffCooking / StaffPickup /
+  StaffClosed boards.
+  - **Data:** one `staffOrdersQuery` + `staffStoreQuery`, both `STOREFRONT_POLLED` (5 s),
+    and `meQuery` for the name in the header. **The tab is in the URL** (`/staff`,
+    `?tab=cooking`, `?tab=ready`, switched with `replace`; Jui), so a refresh or coming
+    back from ร้าน / เมนู keeps it. All three tabs come from the one cached list.
+  - **Sorting per tab:** awaiting payment by `createdAt`, cooking by `queueNumber` (none
+    → last, shown "—"), ready by `readyAt`.
+  - **Header dot:** green "อัปเดตทุก 5 วิ · name"; red "ร้านปิดอยู่ · name" while closed;
+    orange "เชื่อมต่อไม่ได้ · กำลังลองใหม่" when a poll fails but old data is shown (DESIGN
+    §6). A full-page error only appears before the first load.
+  - **Cards:** the same card for all three statuses.
+    - Awaiting payment: big amount + name, wait badge (orange border after 5 min), masked
+      phone "••• 1234", **Cancel needs two taps** (Jui; it sits next to Confirm and can't be
+      undone).
+    - Cooking / ready: queue box (blue / green), full phone as a `tel:` link, toppings in
+      brand colour, the separate-cup badge; ready turns orange after 10 min.
+    - Waits read "8 นาที" / "2 ชม." / "3 วัน" (`durationText`; minutes alone gave
+      "3402 นาที" for an old order).
+  - **After a successful tap the card slides out and its row closes up**, like Home's End
+    round (Jui): `idle → working → leaving`, the 200 ms timer, `motion-reduce`. Then it's
+    dropped from the cache and the list refetches. Only the tapped button says
+    "กำลังยืนยัน…" / "กำลังยกเลิก…".
+  - **409** (the other phone moved the order first): no red error, just a refetch; the
+    card moves on by itself. Other errors stay on the card.
+  - **Store closed** (artifact StaffClosed): a red card with "ปิดโดย {name} {HH:mm}", a
+    green **"เปิดร้าน"** button (a 400 from the server, i.e. no payment QR, shows "ยังไม่ได้
+    ตั้ง QR รับเงิน เปิดร้านไม่ได้") and "เช็กเมนูที่หมดก่อนเปิด" → `/staff/menu`. A green
+    "ยังมีออเดอร์รอลูกค้ามารับ" shortcut to the ready tab appears when there are ready
+    orders. Existing orders stay workable.
+  - **Empty tabs:** a dashed box (from StaffClosed); the wording per tab is ours.
+  - **Helpers:** `client/src/constants/storefront.js` (`lineLabel` → "2× Classic · Choco
+    Berry (S)", `formatPhone`, `maskPhone`, `minutesSince`, `durationText`, `formatClock`, the
+    5 / 10-minute thresholds), shared with the customer pages later. `client/src/useNow.js`
+    holds the clock in state (15 s), so renders stay pure for the React Compiler.
+  - **`GET /api/v1/users/me`** (`authController.getMe`, `protect`) returns `{ name }` for the
+    header. It asks the server rather than saving the name at login, because tokens last
+    30 days and phones already logged in would have no name.
 - **Testing notes:**
   - **On Windows, two servers can both listen on port 3000.** On 2026-11-09 a test hit an
     older server Jui had running (`npm run start` from `main`) instead of the branch's. The

@@ -151,6 +151,15 @@ export const staffMenuQuery = {
   queryFn: async () => (await getJson('/api/staff/menu')).data.items,
 };
 
+// The logged-in account's name ({ name }), for the staff page header. It
+// doesn't change while logged in, so it's fetched once and kept.
+export const meQuery = {
+  queryKey: ['me'],
+  queryFn: async () => (await getJson('/api/v1/users/me')).data.user,
+  staleTime: Infinity,
+  refetchOnWindowFocus: false,
+};
+
 // What each kind of save changes, by list root. A new order also deducts
 // stock and adds revenue, so it refreshes those lists too.
 export const AFFECTED_BY = {
