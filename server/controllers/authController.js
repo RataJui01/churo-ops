@@ -101,3 +101,15 @@ exports.logout = catchAsync(async (req, res, next) => {
     data: null,
   });
 });
+
+// Who is logged in on this phone — the staff page shows the name in its header
+// ("updated every 5 s · Jui"). Asked from the server rather than saved at login:
+// tokens last 30 days, so a phone logged in before this existed would have no
+// name until the next login. Only the name: nothing else about the account is
+// needed on the page. protect has already loaded the user, so no extra query.
+exports.getMe = (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    data: { user: { name: req.user.name } },
+  });
+};

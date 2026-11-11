@@ -109,7 +109,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       continue;
     }
 
-    // A single-variant item (Hug, Bites, toppings) needs no choice; Classic
+    // A single-variant item (Hug, toppings) needs no choice; Classic
     // must say S or M
     const variant =
       menuItem.variants.length === 1 && line.variantName === undefined

@@ -151,7 +151,7 @@ when the repo went public — the scripts hold no secrets, they read the env fil
 one-off seed scripts, run with `node` from `server/`: `seedAccount.js <name>
 <email>` (asks for the password twice, hidden, 12+ characters — never on the command line)
 and `seedStock.js`, plus `seedMenu.js` for the storefront (2026-11-08):
-- It writes the 12 menu items and the closed store setting. **Running it again is safe and
+- It writes the 11 menu items and the closed store setting. **Running it again is safe and
   is how prices change**, since there's no menu-editing page; change `client/src/constants/
   prices.js` too.
 - What a re-run does:
@@ -191,7 +191,13 @@ never mint a JWT.
   that's deleting its document. Presets: `POLLED` (list pages, `refetchInterval` 7 s,
   paused in the background), `FORM_LIST` (New order's rounds, Restock's names: cached but
   not refetched on focus mid-form), `LOAD_ONCE` (edit pages: never refetched while open,
-  `gcTime 0` so a revisit loads fresh). Edit pages are split into a loader + `…Form`
+  `gcTime 0` so a revisit loads fresh). Storefront (2026-11-11): a fourth preset, `STOREFRONT_POLLED` (5 s: a customer is
+  waiting at the counter; the dashboard keeps 7 s), and the staff queries `staffOrdersQuery`
+  (`['staff-orders']`, every active order in one request), `staffStoreQuery`
+  (`['staff-store']`) and `staffMenuQuery` (`['staff-menu']`), with `AFFECTED_BY.staffOrder` /
+  `store` / `menuItem`; none of them touch the dashboard's lists. `getJson`'s errors carry
+  `err.status` so a page can react to a status (409 → refresh quietly; the storefront's Thai
+  text for 403 / 409 / 429) instead of the English message; `errorMessage(err)` is unchanged. Edit pages are split into a loader + `…Form`
   component that seeds its fields with `useState(data.x)` — no effects copying data into
   state. Every save is a `useMutation` that saves, then awaits `refreshAfterSave(queryClient,
   AFFECTED_BY.<kind>)` (refetches the affected lists, inactive ones too) before navigating,
@@ -286,6 +292,12 @@ never mint a JWT.
   free-text item name (existing name = top up, new name = start tracking it) with a kg/L/pcs
   unit. The design's example items (Flour, Sugar…) are just placeholders. See the
   `StockItem` bullet under Domain model; the plan lives in `todo.TODO` (9-30-26).
+- **Loading states use `<Spinner label="…" />`** (`src/components/Spinner.jsx`, Jui 2026-11-11),
+  not "Loading…" text: a 32px brand arc on a border-coloured ring, centred with `py-12`,
+  `role="status"` + a screen-reader-only label (the old text without "…"). Reduced motion
+  slows it to 3 s a turn rather than stopping it, because a still ring looks frozen. The one
+  exception is New order's Round `<select>`: an `<option>` can only hold text. Home shows two
+  spinners (rounds and stock), since its two sections load separately.
 - Form inputs must be ≥16px font (iOS Safari zooms on focus otherwise); the mockups' 15px is a
   known bug. Primary buttons 48px/16px text vs secondary 44px/14px is intentional.
 
@@ -530,8 +542,15 @@ storefront, read the design in `docs/storefront-design/`** (written in Thai):
 
 Which wins: a screen file beats `DESIGN.md` if they disagree (DESIGN.md says so; tell Jui).
 The folder is a one-off export of https://claude.ai/artifact/Dhrznc3JcveHsfHeJqnyQK and
-does not update itself. If Jui says the design changed, read the artifact (same way as the
-churo-ops design above) and ask whether to re-export. `tokens.json` is the same token set as
+does not update itself.
+- **The artifact is the source of truth for screens** (Jui, 2026-11-11: don't re-export,
+  read the artifact). The local `screens/` files may lag behind it: for example
+  `05-store-and-menu.dc.html` lacks the Dashboard button added on 2026-11-11.
+- Before building a storefront screen, read its file in the artifact. Use the
+  claude-artifacts tools: `list_files` (slug `Dhrznc3JcveHsfHeJqnyQK`), then `read_file`
+  with **one `path` per call** (`paths` is refused for this artifact type). The files are
+  `project/<Name>.dc.html`; README's table maps them to routes. `project/canvas.json`
+  lists the boards. Compare with the local export to see what changed. `tokens.json` is the same token set as
 `client/design-system/tokens.json` (only line endings differ), already in `@theme` in
 `client/src/index.css`, so use those existing utilities (`bg-surface-raised`,
 `text-ink-muted`…) and never hard-code a new hex.
@@ -569,19 +588,30 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   `/login` (email, not the design's "username"), so `screens/staff/01-login.dc.html` is
   not built. `/staff` and `/staff/menu` are logged-in pages like the rest of the
   dashboard.
+- **Decided (Jui, 2026-11-11): moving between the dashboard and the staff pages.**
+  - **Into `/staff`:** a card on the dashboard's **Home** showing how many orders are
+    waiting for payment confirmation (e.g. "ออเดอร์หน้าร้าน · 3 รอยืนยันจ่าย"). Why: the
+    4-item nav and its sliding-pill animation stay as they are, and the count works as a
+    notification when the app opens. This card **isn't in the dashboard design artifact**:
+    it's an app-only addition, and updating the design is Jui's job.
+  - **Back to the dashboard:** only the **"Dashboard" button in `/staff/menu`'s header**,
+    as the artifact shows (Jui chose to follow the design). From the order tabs that's two
+    taps (ร้าน / เมนู → Dashboard), which keeps the tab page focused on the counter work.
 - The menu is different from churo-ops: Classic (Plain / Choco Pops / Choco Berry /
   Signature, S/M, on top or separate cup), Churro Hug (3 flavours, one size), toppings ฿10
-  as their own line items, including condensed milk (new). It also has **Strawberry Nutella
-  Bites ฿129** (Jui, 2026-11-08; not in the design files). Bites has its own `bites`
-  section after Classic, one size, and can be on top or in a separate cup, so tapping it
-  opens a choice screen like Classic's, without the size step. It's a new `MenuItem`
+  as their own line items, including condensed milk (new). **Strawberry Nutella Bites is
+  not sold on the storefront** (Jui, 2026-11-11). It was added on 2026-11-08 with its own
+  `bites` section, then removed from the categories, the seed and the dev DB when Jui
+  stopped selling it. The LINE dashboard is untouched: its `strawberry_nutella_bite`
+  flavor still covers past orders and the Bite churro / Bite box stock rules. It's a new
+  `MenuItem`
   collection with server-side prices. Don't change churo-ops' flavour / add-on enums or
   `prices.js` to fit it. Real Classic prices (Jui, 2026-11-08; the design's ฿35/฿55 are
   placeholders): S: Plain 59, Choco Pops 69, Choco Berry 89, Signature 79; M: Plain 99,
   Choco Pops 119, Choco Berry 149, Signature 129. They equal churo-ops' `BASE_PRICES`
   (`plain`, `chocolate`, `strawberry`, `signature`), so a price change means editing both
   `prices.js` and the `MenuItem` seed (REQUIREMENTS §8). Churro Hug: Plain 59, Choco Pops
-  69, Choco Berry 79; Bites 129 (= `BASE_PRICES.strawberry_nutella_bite`); toppings ฿10.
+  69, Choco Berry 79; toppings ฿10.
 - Spec values that differ from churo-ops on purpose: polling **every 5 s** (not 7), no
   auto stock deduction for storefront orders (out of scope), `totalPrice` computed on the
   server (unlike churo-ops' `Order`), and the customer status API never returns the phone
@@ -635,23 +665,23 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
     first, as the design shows.
 - **Storefront models** (built 2026-11-08, `storeFront.TODO` step 2). They sit next to the
   six churo-ops models but share no collections with them. The shared enums
-  (`MENU_CATEGORIES` in menu-section order `churro-hug, classic, bites, topping`;
+  (`MENU_CATEGORIES` in menu-section order `churro-hug, classic, topping`;
   `SEPARATE_TOPPING_CATEGORIES`; `ORDER_STATUSES`) live in
   `server/constants/storefront.js`.
   - **`MenuItem`**: **one document = one row on the customer menu** (Jui): each Classic
-    flavor, each Churro Hug flavor, Bites and each topping, so 12 items. `isAvailable` (the
+    flavor, each Churro Hug flavor and each topping, so 11 items. `isAvailable` (the
     sold-out switch) is on the item, so one switch = one row = one field, and the database
     can't hold a state the screens can't show, like "S sold out, M on sale". This is why
     the switch API is `PATCH /api/staff/menu/:itemId`, not the docs'
     `/variants/:variantId`.
     - `variants: [{ name, price }]`: at least one, names unique within the item. Classic
-      has `S` / `M`; Hug, Bites and toppings have one `Regular`, whose name the pages
+      has `S` / `M`; Hug and toppings have one `Regular`, whose name the pages
       don't show.
     - `name` is what the menu row shows under its section heading ("Plain", "นมข้น";
       English except นมข้น — Jui). It's unique **per category**: index
       `{ category, name }`, since Classic and Hug share flavor names. The cart and staff
       pages show "Classic · Plain (M)" / "Churro Hug · Choco Pops" by putting a category
-      label in front, as the design does. Bites and toppings show just their name. It
+      label in front, as the design does. Toppings show just their name. It
       replaced a unique index on `name` alone (2026-11-08): `name_1` was dropped from dev
       by hand, and production never had it. `sortOrder` orders items within their
       category.
@@ -661,7 +691,7 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
       `unitPrice`. A later price or name change can't rewrite placed orders, and no
       populate is needed; `category` lets the staff page colour topping lines.
     - Each line has `qty` (whole number, 1–20) and `separateToppings`, which may only be
-      true on a `classic` or `bites` line (`SEPARATE_TOPPING_CATEGORIES`).
+      true on a `classic` line (`SEPARATE_TOPPING_CATEGORIES`).
     - Limits, because the form is public: 1–30 lines, `customerName` ≤ 40 characters.
     - `customerPhone`: a setter keeps only digits, then it must match `/^0\d{8,9}$/`
       (9–10 digits, landlines too — Jui). It's **`select: false`** like
@@ -756,6 +786,71 @@ churo-ops. Follow the code, and ask Jui where a decision is needed:
   - `GET /menu` and `GET /orders/:id` (polled every 5 s) aren't limited: they only read.
   - It keys on the same `ipKey` as the login limiter (`utils/clientIp.js`). The count
     lives in memory, so a Railway restart resets it.
+- **Staff page `/staff`** (built 2026-11-11, `storeFront.TODO` step 10): `pages/Staff.jsx` +
+  `components/StaffOrderCard.jsx`, a logged-in route like the dashboard (no lazy loading:
+  only staff open it). Built from the artifact's StaffOrders / StaffCooking / StaffPickup /
+  StaffClosed boards.
+  - **Data:** one `staffOrdersQuery` + `staffStoreQuery`, both `STOREFRONT_POLLED` (5 s),
+    and `meQuery` for the name in the header. **The tab is in the URL** (`/staff`,
+    `?tab=cooking`, `?tab=ready`, switched with `replace`; Jui), so a refresh or coming
+    back from ร้าน / เมนู keeps it. All three tabs come from the one cached list.
+  - **Sorting per tab:** awaiting payment by `createdAt`, cooking by `queueNumber` (none
+    → last, shown "—"), ready by `readyAt`.
+  - **Header dot:** green "อัปเดตทุก 5 วิ · name"; red "ร้านปิดอยู่ · name" while closed;
+    orange "เชื่อมต่อไม่ได้ · กำลังลองใหม่" when a poll fails but old data is shown (DESIGN
+    §6). A full-page error only appears before the first load.
+  - **Cards:** the same card for all three statuses.
+    - Awaiting payment: big amount + name, wait badge (orange border after 5 min), masked
+      phone "••• 1234", **Cancel needs two taps** (Jui; it sits next to Confirm and can't be
+      undone).
+    - Cooking / ready: queue box (blue / green), full phone as a `tel:` link, toppings in
+      brand colour, the separate-cup badge; ready turns orange after 10 min.
+    - Waits read "8 นาที" / "2 ชม." / "3 วัน" (`durationText`; minutes alone gave
+      "3402 นาที" for an old order).
+  - **After a successful tap the card slides out and its row closes up**, like Home's End
+    round (Jui): `idle → working → leaving`, the 200 ms timer, `motion-reduce`. Then it's
+    dropped from the cache and the list refetches. Only the tapped button says
+    "กำลังยืนยัน…" / "กำลังยกเลิก…".
+  - **409** (the other phone moved the order first): no red error, just a refetch; the
+    card moves on by itself. Other errors stay on the card.
+  - **Store closed** (artifact StaffClosed): a red card with "ปิดโดย {name} {HH:mm}", a
+    green **"เปิดร้าน"** button (a 400 from the server, i.e. no payment QR, shows "ยังไม่ได้
+    ตั้ง QR รับเงิน เปิดร้านไม่ได้") and "เช็กเมนูที่หมดก่อนเปิด" → `/staff/menu`. A green
+    "ยังมีออเดอร์รอลูกค้ามารับ" shortcut to the ready tab appears when there are ready
+    orders. Existing orders stay workable.
+  - **Empty tabs:** a dashed box (from StaffClosed); the wording per tab is ours.
+  - **Helpers:** `client/src/constants/storefront.js` (`lineLabel` → "2× Classic · Choco
+    Berry (S)", `formatPhone`, `maskPhone`, `minutesSince`, `durationText`, `formatClock`, the
+    5 / 10-minute thresholds), shared with the customer pages later. `client/src/useNow.js`
+    holds the clock in state (15 s), so renders stay pure for the React Compiler.
+  - **`GET /api/v1/users/me`** (`authController.getMe`, `protect`) returns `{ name }` for the
+    header. It asks the server rather than saving the name at login, because tokens last
+    30 days and phones already logged in would have no name.
+- **Staff menu page `/staff/menu`** (built 2026-11-11, `storeFront.TODO` step 11):
+  `pages/StaffMenu.jsx` + `components/Switch.jsx` + `src/useStoreSwitch.js`. Built from the
+  artifact's StaffMenu / StaffMenuClosed boards.
+  - **Header:** a back arrow → `/staff` **on the tab it came from**. `/staff` passes
+    `state={{ tab }}` on its "ร้าน / เมนู" and "เช็กเมนูที่หมดก่อนเปิด" links; opened
+    directly, the arrow goes to the first tab. Then the title, and the **"Dashboard" button →
+    `/`**, the only way back to the dashboard (Jui).
+  - **Store card:** green (open) or red (closed) border, "เปิดโดย / ปิดโดย {name} {HH:mm}",
+    the design's note strip, and a 60×36 switch. The switch **waits for the server** (not
+    optimistic): opening can be refused (no payment QR → "ยังไม่ได้ตั้ง QR รับเงิน เปิด
+    ร้านไม่ได้"), and a switch that showed "open" and then jumped back could mislead.
+    `useStoreSwitch()` holds that rule and message; `/staff`'s closed card uses it too.
+  - **Sold-out switches**, in 3 sections (Churro Hug, Classic Churros "· ปิดรสเดียวได้ทั้ง S
+    และ M", ท็อปปิ้ง): **optimistic** (Jui). `onMutate` cancels the running poll and flips
+    the cached item; `onError` flips it back and shows "บันทึกไม่ได้ ลองอีกครั้ง" in that row;
+    `onSettled` refetches. Off rows are pink-tinted with a grey name and "หมด · ลูกค้าสั่ง
+    ไม่ได้".
+  - **`Switch`**: a real `<input type="checkbox" role="switch">` (`sr-only`, `peer`) inside
+    the row's `<label>`, so the whole ≥ 60px row is the tap target, Space toggles it, and
+    the drawn track gets a brand focus ring via `peer-focus-visible`. The knob moves with
+    `translate` (200 ms, `motion-reduce` off).
+  - **Colours outside the tokens:** the design's #8C7F72 (off track), #FFF7F7 (off row,
+    closed strip) and #F2FBF5 (open strip) aren't tokens, so the nearest token at an opacity
+    is used: `bg-ink-muted/70`, `bg-surface-pink/30` and `bg-status-done-bg/40`.
+  - Both queries are polled every 5 s, so a change on the other phone shows within 5 s.
 - **Testing notes:**
   - **On Windows, two servers can both listen on port 3000.** On 2026-11-09 a test hit an
     older server Jui had running (`npm run start` from `main`) instead of the branch's. The

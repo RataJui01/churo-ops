@@ -4,6 +4,7 @@ import { errorMessage } from '../src/api.js';
 import { POLLED, roundsWithOrdersQuery } from '../src/queries.js';
 import AppShell from '../src/components/AppShell.jsx';
 import RoundOrderGroup from '../src/components/RoundOrderGroup.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 
 function Orders() {
   const query = useQuery({ ...roundsWithOrdersQuery, ...POLLED });
@@ -43,7 +44,7 @@ function Orders() {
             </button>
           </div>
         ) : groups === null ? (
-          <p className="text-body-small text-ink-muted">Loading orders…</p>
+          <Spinner label="Loading orders" />
         ) : groups.length === 0 ? (
           <p className="text-body-small text-ink-muted">No orders yet</p>
         ) : (

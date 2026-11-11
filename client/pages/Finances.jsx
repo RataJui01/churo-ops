@@ -6,6 +6,7 @@ import { formatLoggedAt } from '../src/constants/stock.js';
 import AppShell from '../src/components/AppShell.jsx';
 import SectionLabel from '../src/components/SectionLabel.jsx';
 import StatCard from '../src/components/StatCard.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 
 // "-฿518" rather than "฿-518" — only Profit can go below zero
 function formatBaht(amount) {
@@ -43,7 +44,7 @@ function Finances() {
             </button>
           </div>
         ) : data === null ? (
-          <p className="text-body-small text-ink-muted">Loading finances…</p>
+          <Spinner label="Loading finances" />
         ) : (
           <div className="grid grid-cols-3 gap-2.5">
             <StatCard label="Revenue" value={formatBaht(data.summary.revenue)} />

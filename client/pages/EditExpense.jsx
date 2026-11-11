@@ -10,6 +10,7 @@ import {
 } from '../src/queries.js';
 import { formatLoggedAt } from '../src/constants/stock.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 import { inputClass, labelClass } from '../src/components/formClasses.js';
 
 // Loads the expense, then hands it to the form. Split in two so the form can
@@ -40,7 +41,7 @@ function EditExpense() {
             </Link>
           </div>
         ) : (
-          <p className="text-body-small text-ink-muted">Loading expense…</p>
+          <Spinner label="Loading expense" />
         )}
       </SubPageShell>
     );

@@ -121,6 +121,45 @@ export const expenseQuery = (id) => ({
   queryFn: async () => (await getJson(`/api/v1/expenses/${id}`)).data.expense,
 });
 
+// ---------- Storefront ----------
+
+// The storefront polls every 5 s (its design spec), faster than the
+// dashboard's 7 s: there's a customer standing at the counter waiting for
+// staff to confirm, and then waiting on their own phone for "ready". Kept
+// apart from POLLED so the dashboard is unchanged; the customer status page
+// uses it too. Like POLLED, React Query pauses it while the app is in the
+// background.
+export const STOREFRONT_POLLED = { refetchInterval: 5000 };
+
+// Every order still being worked on (awaiting payment, cooking, ready) in one
+// request — the /staff page splits them into its three tabs, and Home's
+// "waiting for payment" card can count from the same cached list
+export const staffOrdersQuery = {
+  queryKey: ['staff-orders'],
+  queryFn: async () => (await getJson('/api/staff/orders')).data.orders,
+};
+
+// { isOpen, updatedBy: { name } | null, updatedAt }
+export const staffStoreQuery = {
+  queryKey: ['staff-store'],
+  queryFn: async () => (await getJson('/api/staff/store')).data.store,
+};
+
+// The whole menu, even while the store is closed, for the sold-out switches
+export const staffMenuQuery = {
+  queryKey: ['staff-menu'],
+  queryFn: async () => (await getJson('/api/staff/menu')).data.items,
+};
+
+// The logged-in account's name ({ name }), for the staff page header. It
+// doesn't change while logged in, so it's fetched once and kept.
+export const meQuery = {
+  queryKey: ['me'],
+  queryFn: async () => (await getJson('/api/v1/users/me')).data.user,
+  staleTime: Infinity,
+  refetchOnWindowFocus: false,
+};
+
 // What each kind of save changes, by list root. A new order also deducts
 // stock and adds revenue, so it refreshes those lists too.
 export const AFFECTED_BY = {
@@ -130,6 +169,11 @@ export const AFFECTED_BY = {
   // The restock log shows item names and "(deleted)"
   stockItem: [['stock-items'], ['restocks']],
   expense: [['finances']],
+  // Storefront: none of these touch the dashboard's lists — storefront orders
+  // don't deduct stock or count toward Finances (out of scope)
+  staffOrder: [['staff-orders']],
+  store: [['staff-store']],
+  menuItem: [['staff-menu']],
 };
 
 // Called after a save, before leaving the page. refetchType 'all' also

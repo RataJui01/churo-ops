@@ -14,7 +14,7 @@ const StoreSetting = require('../models/storeSettingModel');
 
 // The storefront menu (Jui, 2026-11-08). Names in English, except the
 // condensed-milk topping, which is only ever called นมข้น. Order within each
-// category follows REQUIREMENTS §3. Classic and Bites prices equal churo-ops'
+// category follows REQUIREMENTS §3. Classic prices equal churo-ops'
 // BASE_PRICES (client/src/constants/prices.js): there's no menu-editing page,
 // so changing a price means editing it here AND there, then running this
 // again (REQUIREMENTS §8).
@@ -34,8 +34,6 @@ const MENU = [
   { category: 'classic', name: 'Choco Berry', variants: sizes(89, 149) },
   { category: 'classic', name: 'Signature', variants: sizes(79, 129) },
 
-  { category: 'bites', name: 'Strawberry Nutella Bites', variants: one(129) },
-
   { category: 'topping', name: 'Choc dip', variants: one(10) },
   { category: 'topping', name: 'Choc pops', variants: one(10) },
   { category: 'topping', name: 'Strawberry freeze dried', variants: one(10) },
@@ -43,9 +41,9 @@ const MENU = [
 ].map((item, index, all) => ({
   ...item,
   // 1, 2, 3… within each category, in the order written above
-  sortOrder:
-    all.slice(0, index + 1).filter((other) => other.category === item.category)
-      .length,
+  sortOrder: all
+    .slice(0, index + 1)
+    .filter((other) => other.category === item.category).length,
 }));
 
 const label = (item) => `${item.category} · ${item.name}`;
@@ -93,7 +91,9 @@ const seedMenu = async function () {
   const known = new Set(MENU.map(label));
   const extra = (await MenuItem.find()).filter((doc) => !known.has(label(doc)));
   for (const doc of extra) {
-    console.log(`⚠️  ${label(doc)} is in the database but not in MENU — left alone`);
+    console.log(
+      `⚠️  ${label(doc)} is in the database but not in MENU — left alone`,
+    );
   }
 };
 

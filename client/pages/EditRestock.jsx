@@ -16,6 +16,7 @@ import {
   formatLoggedAt,
 } from '../src/constants/stock.js';
 import SubPageShell from '../src/components/SubPageShell.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 import { inputClass, labelClass } from '../src/components/formClasses.js';
 
 // Loads the entry and every item, then hands both to the form (see
@@ -54,7 +55,7 @@ function EditRestock() {
             </Link>
           </div>
         ) : (
-          <p className="text-body-small text-ink-muted">Loading entry…</p>
+          <Spinner label="Loading entry" />
         )}
       </SubPageShell>
     );

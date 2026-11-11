@@ -10,7 +10,7 @@ Open questions (ask Jui before the step that needs them):
     ✔ Strawberry Nutella Bites ฿129 added to the menu (Jui 11-8-26, forgotten in the design): own section "bites" after Classic (menu order Hug → Classic → Bites → toppings), one variant "Regular", separate cup allowed → it opens a choice screen like Classic's without the size step. The design files have neither the section nor that screen — tell Jui when building them @done(26-11-08)
     ☐ Cart: where it lives (React state / context) and whether it survives a page reload (localStorage) — the first real client-only state in the app
     ☐ Classic size picker: its own route or a sheet over /order? (README lists it as "/order → choose size")
-    ☐ How staff get to /staff from the dashboard (AppShell's nav has 4 items) and back
+    ✔ How staff get to /staff and back (Jui 11-11-26): in = a card on Home with the count waiting for payment (not in the dashboard design — app-only); back = only the "Dashboard" button in /staff/menu's header, as the artifact shows (two taps from the tabs). Jui also said: read storefront screens from the artifact, don't re-export the local files @done(26-11-11)
     ☐ Name of the env variable for the account name shown on the payment page (PROMPTPAY_NAME?)
 
 Day 1 — Backend:
@@ -56,20 +56,26 @@ Day 1 — Backend:
     ☐ 8. Test against the dev DB with throwaway scripts ("ZZ …" data, removed afterwards): closed store 403, price tampering ignored, queue numbers per day, double confirm refused, phone never in the public API
 
 Day 1 — Staff pages:
-    ☐ 9. queries.js: storefront keys + fetch functions + a 5 s polled preset
-    ☐ 10. /staff (one GET /api/staff/orders poll every 5 s, split into tabs here; sort cooking by queueNumber (null → "—" last), ready by readyAt; K SHOP notifications DO show the payer's name (Jui 11-9-26), so the design's "amount + name" card works): header ("updated every 5 s · name", Store / Menu button), SegmentedTabs with counts, StaffOrderCard, SeparateToppingsBadge, PhoneLink
-        ☐ Awaiting payment tab: amount + name large, waiting time (orange after 5 min), "phone ••• 1234", Cancel + Confirm payment
-        ☐ Cooking tab: blue queue box, name, confirmed x min ago, Ready button
-        ☐ Ready for pickup tab: green queue box, orange after 10 min, Picked up button
-        ☐ Empty state per tab (not designed — DESIGN §6)
-    ☐ 11. /staff/menu (GET /api/staff/menu, PATCH /api/staff/store — show its 400 "set up the payment QR"): store switch on top (closed state not designed — danger colours, DESIGN §4.7), one switch per flavor / Hug / topping
+    ✔ 9. queries.js (branch feat/storefront-staff-pages, shipped with step 10): STOREFRONT_POLLED (refetchInterval 5000 — customers waiting; dashboard keeps 7 s), staffOrdersQuery ['staff-orders'] / staffStoreQuery ['staff-store'] / staffMenuQuery ['staff-menu'], AFFECTED_BY.staffOrder / store / menuItem (no dashboard lists — storefront doesn't deduct stock or count in Finances); getJson errors now carry err.status (409 → refresh quietly on /staff; 403 / 409 / 429 → Thai text on the storefront), message unchanged. Customer-side public fetch stays in step 13. Checked: every existing onError only uses errorMessage(err) (instanceof TypeError check unaffected); lint + build pass. The queries themselves get tested with Jui logged in via Playwright in step 10 @done(26-11-11)
+    ✔ 10. /staff (branch feat/storefront-staff-pages; pages/Staff.jsx + components/StaffOrderCard.jsx + constants/storefront.js + useNow.js; GET /api/v1/users/me for the header name) @done(26-11-11)
+        ✔ Decisions (Jui 11-11-26): cards slide out like End round; Cancel needs two taps; closed state from the artifact's new StaffClosed board; one page with the tab in the URL (?tab=cooking / ready, replace) @done(26-11-11)
+        ✔ One staffOrdersQuery + staffStoreQuery poll (5 s), split into tabs here; sorted awaiting by createdAt, cooking by queueNumber (none → last, "—"), ready by readyAt; header dot green / red (closed) / orange (poll failing with old data shown) @done(26-11-11)
+        ✔ Cards: awaiting = amount + name, wait badge (orange border > 5 min), "โทร ••• 1234", Cancel (two taps) + Confirm; cooking = blue queue box, "ยืนยัน x ก่อน", tel: link, toppings in brand colour, separate-cup badge; ready = green queue box, orange > 10 min. Waits as นาที / ชม. / วัน (an old order showed "3402 นาที" before) @done(26-11-11)
+        ✔ After a tap: only that button says "กำลัง…", card slides out + row closes (200 ms, motion-reduce off), dropped from the cache, list refetched; 409 → no red error, quiet refetch; other errors stay on the card @done(26-11-11)
+        ✔ Store closed: red card "ปิดโดย name HH:mm" + green "เปิดร้าน" (400 → "ยังไม่ได้ตั้ง QR รับเงิน เปิดร้านไม่ได้") + "เช็กเมนูที่หมดก่อนเปิด" → /staff/menu; green "ยังมีออเดอร์รอลูกค้ามารับ" shortcut; dashed empty state per tab @done(26-11-11)
+        ✔ Tested with Playwright, Jui logged in (no JWT minted), server PORT=3999 + Vite 5199, 7 "ZZ" orders mirroring the design: all three tabs match the boards (screenshots); refresh keeps ?tab=ready; polls every ~5.1 s; confirm → "กำลังยืนยัน…" → slide + row 284px → 0 in ~200 ms → shows in cooking with queue 1 first; ready → pickup flows through the tabs; cancel first tap = red "แตะอีกครั้งเพื่อยกเลิก", second cancels; 409 (order moved in the DB first) → PATCH 409, no alert, card moved to cooking; closed state renders as StaffClosed, shortcut goes to ?tab=ready, "เปิดร้าน" opens it; with no QR configured → Thai message, store stays closed; reduced motion → cards gone right after the response, empty "ไม่มีออเดอร์ที่กำลังทำ"; /users/me without a token 401. Lint + build pass. Restored: ZZ orders removed, store setting + today's counter put back, "Jui test" untouched @done(26-11-11)
+    ✔ 10b. Spinner instead of "Loading…" text on every page (Jui 11-11-26: all pages, brand ring in the middle): src/components/Spinner.jsx (role="status", sr-only label, reduced motion → 3 s a turn), used by Home (rounds + stock), Orders, Stock, Finances, the four Edit pages and /staff; New order's <option> keeps its text. /staff hides the tab counts until the first load ("0" read as "no orders"). Checked in Playwright with API answers held 3 s: spinners shown, spin 1s / 3s with reduced motion; lint + build pass @done(26-11-11)
+    ✔ 11. /staff/menu (pages/StaffMenu.jsx + components/Switch.jsx + useStoreSwitch.js, from the artifact's StaffMenu / StaffMenuClosed) @done(26-11-11)
+        ✔ Decisions (Jui 11-11-26): sold-out switches flip at once and snap back on failure (optimistic); Strawberry Nutella Bites is no longer sold → removed from the storefront only (MENU_CATEGORIES, SEPARATE_TOPPING_CATEGORIES = [classic], seed = 11 items, dev item deleted — no order referenced it; production never seeded; the LINE dashboard keeps its Bites flavor). Model rules re-checked 5/5, seed on dev all "up to date" @done(26-11-11)
+        ✔ Header: back arrow → /staff on the tab it came from (router state), "Dashboard" → /; store card open / closed per the boards with a 60×36 switch that waits for the server (opening can be refused: no QR → Thai message) via the shared useStoreSwitch (/staff's closed card uses it too); 3 sections with 52×32 switches; off rows pink-tinted. Design hexes outside the tokens replaced by token + opacity (ink-muted/70, surface-pink/30, status-done-bg/40) @done(26-11-11)
+        ✔ Tested with Playwright (still logged in as Jui): both boards match (screenshots); นมข้น off → flipped before the server answered (PATCH held 1.5 s), saved, customer menu shows it sold out; PATCH forced to 500 → switch snapped back + "บันทึกไม่ได้ ลองอีกครั้ง" in the row; Signature switched off in the DB → page showed it after ~3 s; store switch disabled while waiting, then open (green card, "เปิดโดย Jui"), closing → /staff shows the closed state; no-QR server → Thai message, switch stays off; Space toggles, brand focus ring with real Tab; back arrow → ?tab=ready / ?tab=cooking, direct open → /staff, Dashboard → /. Lint + build pass. Restored: all 11 available, store setting back exactly @done(26-11-11)
     ☐ 12. Playwright check of the staff pages (Jui logs in)
 
 Day 2 — Customer pages:
     ☐ 13. Public routes loaded with React.lazy; a public fetch that sends no token and isn't caught by apiFetch's 401 → /login
     ☐ 14. Thai fonts: load Kanit + IBM Plex Sans Thai (DESIGN §1) if index.css doesn't yet
-    ☐ 15. /order: store closed screen (3.8); menu with Churro Hug / Classic / Bites / toppings, AddButton → QtyStepper, sold-out rows, sticky "View cart" bar
-    ☐ 16. Choice screen: Classic = S / M (no default) + on top / separate cup + qty, disabled "Choose a size first"; Bites = on top / separate cup + qty only (not designed — ask Jui)
+    ☐ 15. /order: store closed screen (3.8); menu with Churro Hug / Classic / toppings, AddButton → QtyStepper, sold-out rows, sticky "View cart" bar
+    ☐ 16. Choice screen (Classic only — Bites dropped 11-11-26): S / M (no default) + on top / separate cup + qty, disabled "Choose a size first"
     ☐ 17. /cart (429 → Thai "สั่งบ่อยเกินไป รอสักครู่"; 403 → closed screen; 409 → mark the sold-out rows): one row per item, remove, "+ Add more", name + phone form (16px inputs), total, Confirm → POST → /order/:id; 403 → closed screen
     ☐ 18. /order/:id: poll 5 s; pending_payment (QR as <img>, Save QR image, how to pay, role="status"), cooking, ready, picked_up, cancelled (not designed — layout of 07 + danger text); StatusStepper; "Reconnecting…" bar when a poll fails
     ☐ 19. npm run lint + npm run build; Playwright run of the whole customer flow on a 390px viewport
@@ -78,7 +84,7 @@ Deploy + go live:
     ☐ 20. Back up production (backupDb.js) — new models
     ☐ 21. Set PROMPTPAY_MERCHANT_QR / PROMPTPAY_NAME in Railway before opening the store (merging without them is safe — no crash, just no QR)
     ☐ 22. Seed the menu + StoreSetting into production (writes production — Jui's OK first): cd server && ENV_FILE=config.prod.env node scripts/seedMenu.js (add DNS_SERVERS=8.8.8.8,1.1.1.1 in front if config.prod.env still lacks it)
-    ☐ 23. Last merge = opening: switch the store on and link /staff from the dashboard; know the rollback (Vercel / Railway → previous deployment)
+    ☐ 23. Last merge = opening: switch the store on and link /staff from the dashboard (the Home card with the "waiting for payment" count, decided 11-11-26); know the rollback (Vercel / Railway → previous deployment)
     ☐ 24. Real test on 2–3 phones: closed → scan shows no menu → open → order → real payment (cheapest item) → confirm → ready → picked up
     ☐ 25. Print the QR code for the stall (points to <vercel address>/order)
 

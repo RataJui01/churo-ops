@@ -1,16 +1,17 @@
 // Shared by the storefront models and (later) their controllers / routes, so
 // the lists live in one place — like units.js and staffMembers.js.
 
-// One section each on the customer menu, in this order: the design's three
-// (DESIGN §3.1) plus Strawberry Nutella Bites after Classic — one size only,
-// so it fits neither Classic nor Churro Hug (Jui, 2026-11-08; not in the
-// design yet)
-const MENU_CATEGORIES = ['churro-hug', 'classic', 'bites', 'topping'];
+// One section each on the customer menu, in this order (DESIGN §3.1).
+// Strawberry Nutella Bites had its own 'bites' section from 2026-11-08 until
+// Jui stopped selling it on the storefront (2026-11-11); the LINE dashboard
+// keeps its own Bites flavor for its orders and stock.
+const MENU_CATEGORIES = ['churro-hug', 'classic', 'topping'];
 
-// Lines the customer may ask to have the topping in a separate cup:
-// Classic and Bites. Churro Hug comes with its topping on, and a topping line
-// is the topping itself.
-const SEPARATE_TOPPING_CATEGORIES = ['classic', 'bites'];
+// Lines the customer may ask to have the topping in a separate cup: Classic
+// only. Churro Hug comes with its topping on, and a topping line is the topping
+// itself. A list (not a single value) so another category can be added in one
+// place, as Bites was until 2026-11-11.
+const SEPARATE_TOPPING_CATEGORIES = ['classic'];
 
 // pending_payment → cooking (staff confirmed the payment, queue number given)
 // → ready (made, waiting for the customer) → picked_up (closed).

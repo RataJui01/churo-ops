@@ -19,6 +19,7 @@ import DeliveryFeePicker from '../src/components/DeliveryFeePicker.jsx';
 import ItemBuilder from '../src/components/ItemBuilder.jsx';
 import OrderItemList from '../src/components/OrderItemList.jsx';
 import SectionLabel from '../src/components/SectionLabel.jsx';
+import Spinner from '../src/components/Spinner.jsx';
 import {
   inputClass,
   labelClass,
@@ -49,7 +50,7 @@ function EditOrder() {
             </Link>
           </div>
         ) : (
-          <p className="text-body-small text-ink-muted">Loading order…</p>
+          <Spinner label="Loading order" />
         )}
       </SubPageShell>
     );
