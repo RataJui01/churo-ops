@@ -64,9 +64,17 @@ export function errorMessage(err) {
 
 // fetch + parse JSON, throwing the server's message on a non-2xx response.
 // Shared by every page that needs typed data instead of a raw Response.
+// The error also carries the HTTP status (err.status), for pages that react
+// to a case rather than show the message: the staff page refreshes quietly
+// on 409 (the other phone got there first), the storefront shows its own
+// Thai text for 403 / 409 / 429.
 export async function getJson(path, options) {
   const res = await apiFetch(path, options);
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? 'Something went wrong');
+  if (!res.ok) {
+    const err = new Error(body.message ?? 'Something went wrong');
+    err.status = res.status;
+    throw err;
+  }
   return body;
 }

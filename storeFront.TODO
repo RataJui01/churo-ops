@@ -56,7 +56,7 @@ Day 1 — Backend:
     ☐ 8. Test against the dev DB with throwaway scripts ("ZZ …" data, removed afterwards): closed store 403, price tampering ignored, queue numbers per day, double confirm refused, phone never in the public API
 
 Day 1 — Staff pages:
-    ☐ 9. queries.js: storefront keys + fetch functions + a 5 s polled preset
+    ✔ 9. queries.js (branch feat/storefront-staff-pages, shipped with step 10): STOREFRONT_POLLED (refetchInterval 5000 — customers waiting; dashboard keeps 7 s), staffOrdersQuery ['staff-orders'] / staffStoreQuery ['staff-store'] / staffMenuQuery ['staff-menu'], AFFECTED_BY.staffOrder / store / menuItem (no dashboard lists — storefront doesn't deduct stock or count in Finances); getJson errors now carry err.status (409 → refresh quietly on /staff; 403 / 409 / 429 → Thai text on the storefront), message unchanged. Customer-side public fetch stays in step 13. Checked: every existing onError only uses errorMessage(err) (instanceof TypeError check unaffected); lint + build pass. The queries themselves get tested with Jui logged in via Playwright in step 10 @done(26-11-11)
     ☐ 10. /staff (one GET /api/staff/orders poll every 5 s, split into tabs here; sort cooking by queueNumber (null → "—" last), ready by readyAt; K SHOP notifications DO show the payer's name (Jui 11-9-26), so the design's "amount + name" card works): header ("updated every 5 s · name", Store / Menu button), SegmentedTabs with counts, StaffOrderCard, SeparateToppingsBadge, PhoneLink
         ☐ Awaiting payment tab: amount + name large, waiting time (orange after 5 min), "phone ••• 1234", Cancel + Confirm payment
         ☐ Cooking tab: blue queue box, name, confirmed x min ago, Ready button

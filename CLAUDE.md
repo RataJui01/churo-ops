@@ -191,7 +191,13 @@ never mint a JWT.
   that's deleting its document. Presets: `POLLED` (list pages, `refetchInterval` 7 s,
   paused in the background), `FORM_LIST` (New order's rounds, Restock's names: cached but
   not refetched on focus mid-form), `LOAD_ONCE` (edit pages: never refetched while open,
-  `gcTime 0` so a revisit loads fresh). Edit pages are split into a loader + `…Form`
+  `gcTime 0` so a revisit loads fresh). Storefront (2026-11-11): a fourth preset, `STOREFRONT_POLLED` (5 s: a customer is
+  waiting at the counter; the dashboard keeps 7 s), and the staff queries `staffOrdersQuery`
+  (`['staff-orders']`, every active order in one request), `staffStoreQuery`
+  (`['staff-store']`) and `staffMenuQuery` (`['staff-menu']`), with `AFFECTED_BY.staffOrder` /
+  `store` / `menuItem`; none of them touch the dashboard's lists. `getJson`'s errors carry
+  `err.status` so a page can react to a status (409 → refresh quietly; the storefront's Thai
+  text for 403 / 409 / 429) instead of the English message; `errorMessage(err)` is unchanged. Edit pages are split into a loader + `…Form`
   component that seeds its fields with `useState(data.x)` — no effects copying data into
   state. Every save is a `useMutation` that saves, then awaits `refreshAfterSave(queryClient,
   AFFECTED_BY.<kind>)` (refetches the affected lists, inactive ones too) before navigating,
